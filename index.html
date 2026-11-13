@@ -264,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 21:55</div>
+    <div class="hint">Versione app: 13/11 22:05</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -936,13 +936,21 @@ async function ctBlueprintFor(sel){
   }
   CTMEM.bp[k]=0;return 0;
 }
-async function ctMinFor(sel,lg,nmOnly){
+const CTCOND=["mint","near mint","slightly played","moderately played","played","heavily played","poor"];
+const CTCOND_IT=["Mint","Near Mint","Slightly Played","Moderately Played","Played","Heavily Played","Poor"];
+async function ctMinFor(sel,lg,cond){
   const bp=await ctBlueprintFor(sel);if(!bp)return {bp:0};
   const k=bp+":"+lg;let items=CTMEM.mk[k];
   if(!items){const r=await ctApi(`/marketplace/products?blueprint_id=${bp}&language=${lg}`);items=Array.isArray(r)?r:(r[bp]||r[String(bp)]||ctArr(r));CTMEM.mk[k]=items}
-  let best=null;for(const p of items){if(!p.can_sell_via_hub)continue;const ph=p.properties_hash||{};const c=String(ph.condition||"").toLowerCase();if(nmOnly&&!(c==="mint"||c==="near mint"))continue;
-    const eur=p.price&&p.price.cents!=null?p.price.cents/100:(p.price_cents!=null?p.price_cents/100:null);if(eur!=null&&(best==null||eur<best))best=eur}
-  return {bp,min:best};
+  const maxRank=Math.max(0,Math.min(6,cond-1));let best=null,any=null;
+  for(const p of items){
+    const hub=p.can_sell_via_hub!=null?p.can_sell_via_hub:(p.user&&p.user.can_sell_via_hub);if(!hub)continue;
+    const eur=p.price&&p.price.cents!=null?p.price.cents/100:(p.price_cents!=null?p.price_cents/100:null);if(eur==null)continue;
+    const rank=CTCOND.indexOf(String((p.properties_hash||{}).condition||"").toLowerCase());
+    if(any==null||eur<any.eur)any={eur,rank};
+    if(rank>=0&&rank<=maxRank&&(best==null||eur<best))best=eur;
+  }
+  return {bp,min:best,any,n:items.length};
 }
 function prefillLow(){
   const key=SEL?SEL.game+":"+SEL.id:null;
@@ -956,16 +964,19 @@ let CT_REQ=0;
 function prefillCT(){
   const ctOn=S.ctTok||ctProxy();
   if(!SEL||!ctOn||window.claude){if(!ctOn&&SEL)$("ctEst").textContent="Inserisci il token CardTrader in ⚙︎ per il prezzo automatico.";return}
-  const lg=CTLANG[$("lang").selectedOptions[0].dataset.k];const cond=+$("cond").value;const nmOnly=cond<=2;
-  const key=SEL.game+":"+SEL.id+":"+lg+":"+(nmOnly?"nm":"any");
+  const lg=CTLANG[$("lang").selectedOptions[0].dataset.k];const cond=+$("cond").value||2;
+  const key=SEL.game+":"+SEL.id+":"+lg+":"+cond;
   if(CT_AUTO&&CT_AUTO.key===key)return;
   if($("ctp").value&&!(CT_AUTO&&$("ctp").value===CT_AUTO.v))return;
   if(!lg){$("ctEst").textContent="Lingua non disponibile su CardTrader.";return}
   const my=++CT_REQ;const sel=SEL;CT_AUTO={key,v:$("ctp").value};$("ctEst").textContent="Cerco il minimo CardTrader Zero…";
-  ctMinFor(sel,lg,nmOnly).then(r=>{if(my!==CT_REQ||SEL!==sel)return;
+  ctMinFor(sel,lg,cond).then(r=>{if(my!==CT_REQ||SEL!==sel)return;
+    const ln=$("lang").selectedOptions[0].text,cn=CTCOND_IT[Math.max(0,Math.min(6,cond-1))];
     if(r.bp)SEL.ctbp=r.bp;
-    if(r.min==null){$("ctEst").textContent=r.bp?"Nessuna copia CT Zero in "+$("lang").selectedOptions[0].text+(nmOnly?" Near Mint":"")+" tra le più economiche.":"Carta non trovata su CardTrader.";if(CT_AUTO&&$("ctp").value===CT_AUTO.v){$("ctp").value="";}CT_AUTO={key,v:""};links();return}
-    const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+$("lang").selectedOptions[0].text+(nmOnly?", Near Mint":"")+" (adesso).";calc();
+    if(r.min==null){
+      $("ctEst").textContent=!r.bp?"Carta non trovata su CardTrader.":(r.any?"Nessuna copia CT Zero in "+ln+" "+cn+" o migliore tra le "+r.n+" più economiche (la più economica è "+eur(r.any.eur)+" in "+(CTCOND_IT[r.any.rank]||"altra condizione")+"). Controlla su CardTrader.":"Nessuna copia CT Zero in "+ln+" in vendita.");
+      if(CT_AUTO&&$("ctp").value===CT_AUTO.v){$("ctp").value="";}CT_AUTO={key,v:""};links();return}
+    const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+ln+", "+cn+" o migliore (adesso).";calc();
   }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido: controllalo in ⚙︎.":(e.message==="Failed to fetch"||e.message==="Load failed"?"Non riesco a collegarmi a CardTrader: controlla la connessione e riprova.":"Errore CardTrader ("+e.message+"): mandami uno screenshot.")});
 }
 function calc(){
