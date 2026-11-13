@@ -116,12 +116,14 @@ def build(gid, slug, tdx=None, tdx_exp=None):
     prods = json.load(open(f"{SRC}/p{gid}.json"))
     created = prods.get("createdAt", "")[:10]
     prods = prods["products"]
-    trend = {}
+    trend, low = {}, {}
     try:
         for g in json.load(open(f"{SRC}/pg{gid}.json"))["priceGuides"]:
             t = g.get("trend") or g.get("avg") or g.get("low")
             if t:
                 trend[g["idProduct"]] = round(t, 2)
+            if g.get("low"):
+                low[g["idProduct"]] = round(g["low"], 2)
     except Exception:
         pass
     exps = expansion_names(f"{SRC}/ns{gid}.json")
@@ -159,8 +161,13 @@ def build(gid, slug, tdx=None, tdx_exp=None):
             row.append(extra)
         if ct or img:
             row.append(ct)
-        if img:
+        lo = low.get(pid)
+        if img or lo:
+            while len(row) < 6:
+                row.append("" if len(row) == 4 else 0)
             row.append(img)
+        if lo:
+            row.append(lo)
         rows.append(row)
         if e in exps:
             used_exp.add(e)
