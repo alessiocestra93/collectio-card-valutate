@@ -256,7 +256,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 18:00</div>
+    <div class="hint">Versione app: 13/11 18:10</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -511,6 +511,7 @@ async function visualRank(photo,res){
   if(sc.length<2)return res;
   sc.sort((a,b)=>b[0]-a[0]);
   const order=sc.map(x=>x[1]);res.cands=[...order,...res.cands.filter(i=>!order.includes(i))];
+  {const it0=c.p[res.cands[0]];const base=it0[1].replace(/\s*\[.*?\]/g,"").replace(/ — .*$/,"").trim();const ex=String(c.e[it0[2]]||"");const code=(ex.split(" · ")[1]||ex).trim();const num=(res.label.match(/\d{1,3}\/\d{2,3}/)||[""])[0];res.label=[base,code,num].filter(Boolean).join(" ")}
   res.visual=sc.map(x=>Math.round(x[0]*100));
   const it=c.p[sc[0][1]];
   if(sc[0][0]-sc[1][0]>0.08&&!res.sel){res.sel={game:res.g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",i:sc[0][1]}}
@@ -677,6 +678,7 @@ async function matchScan(j){
   const mk=i=>{const it=c.p[i];return{game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",i}};
   if(best[0]>=5&&same===1)out.sel=mk(best[1]);
   out.cands=scored.slice(0,12).map(x=>x[1]);
+  if(!nameToks.length&&out.cands.length){const it=c.p[out.cands[0]];const base=it[1].replace(/\s*\[.*?\]/g,"").replace(/ — .*$/,"").trim();const ex=String(c.e[it[2]]||"");const sc=(ex.split(" · ")[1]||ex).trim();out.label=[base,sc,num].filter(Boolean).join(" ");}
   return out;
 }
 function loadQ(q){
