@@ -257,7 +257,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 18:40</div>
+    <div class="hint">Versione app: 13/11 19:00</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -502,20 +502,88 @@ function sig(src,w,h,crop){const c=document.createElement("canvas");c.width=w;c.
   for(let i=0;i<36;i++)hist[i]/=w*h;return {v,hist}}
 function sigDist(a,b){let hi=0;for(let i=0;i<36;i++)hi+=Math.min(a.hist[i],b.hist[i]);let ma=0,mb=0;for(let i=0;i<a.v.length;i++){ma+=a.v[i];mb+=b.v[i]}ma/=a.v.length;mb/=b.v.length;let num=0,da=0,db=0;for(let i=0;i<a.v.length;i++){const x=a.v[i]-ma,y=b.v[i]-mb;num+=x*y;da+=x*x;db+=y*y}const cor=num/Math.sqrt(da*db||1);return hi*0.6+Math.max(0,cor)*0.4}
 function loadRemote(u){return new Promise(res=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=()=>res(null);im.src=u;setTimeout(()=>res(null),6000)})}
-async function visualRank(photo,res){
-  if(window.claude||!res.cands||res.cands.length<2)return res;
-  const c=CAT[res.g];if(!c)return res;
-  const top=res.cands.slice(0,8).filter(i=>c.p[i][6]);if(top.length<2)return res;
-  let ps;try{ps=sig(photo,12,16)}catch(e){return res}
-  const sc=[];
-  await Promise.all(top.map(async i=>{const im=await loadRemote(`https://assets.tcgdex.net/${c.p[i][6]}/low.webp`);if(!im)return;try{sc.push([sigDist(ps,sig(im,12,16)),i])}catch(e){}}));
-  if(sc.length<2)return res;
-  sc.sort((a,b)=>b[0]-a[0]);
-  const order=sc.map(x=>x[1]);res.cands=[...order,...res.cands.filter(i=>!order.includes(i))];
-  {const it0=c.p[res.cands[0]];const base=it0[1].replace(/\s*\[.*?\]/g,"").replace(/ — .*$/,"").trim();const ex=String(c.e[it0[2]]||"");const code=(ex.split(" · ")[1]||ex).trim();const num=(res.label.match(/\d{1,3}\/\d{2,3}/)||[""])[0];res.label=[base,code,num].filter(Boolean).join(" ")}
-  res.visual=sc.map(x=>Math.round(x[0]*100));
-  const it=c.p[sc[0][1]];
-  if(sc[0][0]-sc[1][0]>0.08&&!res.sel){res.sel={game:res.g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",low:it[7]||0,i:sc[0][1]}}
+/* ---- Impronte visive (riconoscimento dall'immagine) ---- */
+const FP={};const FP_INNER=[0.05,0.04,0.95,0.96];
+const DCTM=(()=>{const N=32,m=new Float64Array(N*N);for(let k=0;k<N;k++)for(let n=0;n<N;n++)m[k*N+n]=(k===0?Math.sqrt(1/N):Math.sqrt(2/N))*Math.cos(Math.PI*(2*n+1)*k/(2*N));return m})();
+const POPC=(()=>{const t=new Uint8Array(256);for(let i=0;i<256;i++){let c=0,x=i;while(x){c+=x&1;x>>=1}t[i]=c}return t})();
+async function fpLoad(g){
+  if(FP[g]!==undefined)return FP[g];
+  FP[g]=null;
+  try{const r=await fetch(`data/fp_${g}.json`);if(!r.ok)return null;const d=await r.json();
+    const H=Uint8Array.from(atob(d.h),c=>c.charCodeAt(0)),C=Uint8Array.from(atob(d.c),c=>c.charCodeAt(0));
+    const n=d.ids.length,CN=new Float32Array(n*48);
+    for(let i=0;i<n;i++)fpNormColor(C,i*48,CN,i*48);
+    const pos=new Map();d.ids.forEach((id,i)=>pos.set(id,i));
+    FP[g]={ids:d.ids,H,CN,n,pos};
+  }catch(e){FP[g]=null}
+  return FP[g];
+}
+function fpNormColor(src,o,dst,od){for(let ch=0;ch<3;ch++){let m=0;for(let k=0;k<16;k++)m+=src[o+k*3+ch];m/=16;let v=0;for(let k=0;k<16;k++){const x=src[o+k*3+ch]-m;v+=x*x}const sd=Math.sqrt(v/16)||1;for(let k=0;k<16;k++)dst[od+k*3+ch]=(src[o+k*3+ch]-m)/sd}}
+// sorgente: canvas/immagine; rett: [x,y,w,h] della carta nella sorgente; rot: 0/90/180/270
+function fpCompute(src,rect){
+  const [x,y,w,h]=rect;const ix=x+w*FP_INNER[0],iy=y+h*FP_INNER[1],iw=w*(FP_INNER[2]-FP_INNER[0]),ih=h*(FP_INNER[3]-FP_INNER[1]);
+  const S=256;const c=document.createElement("canvas");c.width=S;c.height=S;const g=c.getContext("2d",{willReadFrequently:true});g.imageSmoothingQuality="high";
+  g.drawImage(src,ix,iy,iw,ih,0,0,S,S);
+  const d=g.getImageData(0,0,S,S).data;
+  const A=new Float64Array(128*128*3);
+  for(let yy=0;yy<128;yy++)for(let xx=0;xx<128;xx++){let r=0,gg=0,b=0;for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const p=((yy*2+dy)*S+(xx*2+dx))*4;r+=d[p];gg+=d[p+1];b+=d[p+2]}const q=(yy*128+xx)*3;A[q]=r/4;A[q+1]=gg/4;A[q+2]=b/4}
+  const G=new Float64Array(32*32);
+  for(let yy=0;yy<32;yy++)for(let xx=0;xx<32;xx++){let s=0;for(let dy=0;dy<4;dy++)for(let dx=0;dx<4;dx++){const q=((yy*4+dy)*128+(xx*4+dx))*3;s+=0.299*A[q]+0.587*A[q+1]+0.114*A[q+2]}G[yy*32+xx]=s/16}
+  // DCT 2D: D = M G M^T, solo 8x8
+  const T=new Float64Array(8*32);for(let u=0;u<8;u++)for(let n=0;n<32;n++){let s=0;for(let k=0;k<32;k++)s+=DCTM[u*32+k]*G[k*32+n];T[u*32+n]=s}
+  const B=new Float64Array(64);for(let u=0;u<8;u++)for(let v=0;v<8;v++){let s=0;for(let n=0;n<32;n++)s+=T[u*32+n]*DCTM[v*32+n];B[u*8+v]=s}
+  const srt=Array.from(B.slice(1)).sort((a,b)=>a-b);const med2=srt.length%2?srt[(srt.length-1)/2]:(srt[srt.length/2-1]+srt[srt.length/2])/2;
+  const hb=new Uint8Array(8);for(let i=0;i<64;i++)if(B[i]>med2)hb[i>>3]|=128>>(i&7);
+  const col=new Uint8Array(48);for(let r=0;r<4;r++)for(let cc=0;cc<4;cc++){let s=[0,0,0];for(let yy=0;yy<32;yy++)for(let xx=0;xx<32;xx++){const q=((r*32+yy)*128+(cc*32+xx))*3;s[0]+=A[q];s[1]+=A[q+1];s[2]+=A[q+2]}for(let k=0;k<3;k++)col[(r*4+cc)*3+k]=Math.round(s[k]/1024)}
+  const cn=new Float32Array(48);fpNormColor(col,0,cn,0);
+  return {hb,cn};
+}
+function fpScoreAll(db,q,out,limitIdx){
+  // out: Float32Array(n) con il punteggio migliore (si aggiorna col max)
+  const H=db.H,CN=db.CN,hb=q.hb,cn=q.cn;
+  const loop=(i)=>{let ham=0;const o=i*8;for(let k=0;k<8;k++)ham+=POPC[H[o+k]^hb[k]];let cor=0;const oc=i*48;for(let k=0;k<48;k++)cor+=CN[oc+k]*cn[k];cor/=48;
+    const s=(1-ham/32)*0.5+cor*0.5;if(s>out[i])out[i]=s};
+  if(limitIdx)for(const i of limitIdx)loop(i);else for(let i=0;i<db.n;i++)loop(i);
+}
+// rettangoli candidati (carta verticale) in un'immagine W x H
+function fpRects(W,H,framed){
+  const R=[];const asp=63/88;
+  if(framed){for(const sc of [1,0.96,0.92])for(const dx of [-0.02,0,0.02])for(const dy of [-0.02,0,0.02]){const w=W*sc,h=H*sc;R.push([(W-w)/2+dx*W,(H-h)/2+dy*H,w,h])}return R}
+  for(const sc of [0.95,0.85,0.75,0.65,0.55,0.45]){let h=H*sc,w=h*asp;if(w>W*0.98){w=W*0.98;h=w/asp}
+    const n=5;for(let i=0;i<n;i++)for(let j=0;j<n;j++)R.push([(W-w)*i/(n-1),(H-h)*j/(n-1),w,h])}
+  return R;
+}
+function fpRotated(img,rot){if(!rot)return img;const c=document.createElement("canvas");if(rot%180){c.width=img.height;c.height=img.width}else{c.width=img.width;c.height=img.height}const g=c.getContext("2d");g.translate(c.width/2,c.height/2);g.rotate(rot*Math.PI/180);g.drawImage(img,-img.width/2,-img.height/2);return c}
+async function fpMatch(img,g,framed,limitIds){
+  const db=await fpLoad(g);if(!db)return null;
+  const score=new Float32Array(db.n).fill(-9);
+  let lim=null;if(limitIds&&limitIds.length){lim=[];for(const id of limitIds){const p=db.pos.get(id);if(p!==undefined)lim.push(p)}if(!lim.length)lim=null}
+  const rots=framed?[0]:(img.width>img.height*1.05?[90,270]:[0]);
+  for(const rot of rots){const src=fpRotated(img,rot);for(const r of fpRects(src.width,src.height,framed))fpScoreAll(db,fpCompute(src,r),score,lim)}
+  const idx=lim||Array.from({length:db.n},(_,i)=>i);idx.sort((a,b)=>score[b]-score[a]);
+  return idx.slice(0,30).map(i=>[db.ids[i],score[i]]);
+}
+
+function catPos(c){if(!c._pos){c._pos=new Map();c.p.forEach((x,i)=>c._pos.set(x[0],i))}return c._pos}
+function labelFor(c,i,num){const it=c.p[i];const base=it[1].replace(/\s*\[.*?\]/g,"").replace(/ — .*$/,"").trim();const ex=String(c.e[it[2]]||"");const code=(ex.split(" · ")[1]||ex).trim();return [base,code,num].filter(Boolean).join(" ")}
+async function fpRefine(img,res,framed){
+  try{
+    if(!img||res.sel||window.claude)return res;
+    const c=CAT[res.g];if(!c)return res;const db=await fpLoad(res.g);if(!db)return res;
+    const pos=catPos(c);const num=(res.label.match(/\d{1,3}\/\d{2,3}|[A-Z]{2,4}\d{0,2}-[A-Z]{0,2}\d{3}/)||[""])[0];
+    if(res.cands.length>=2){
+      const ids=res.cands.slice(0,30).map(i=>c.p[i][0]);
+      const m=await fpMatch(img,res.g,framed,ids);if(!m||!m.length)return res;
+      const vs=new Map(m.map(x=>[x[0],x[1]]));
+      const ordered=[...res.cands].sort((a,b)=>(vs.has(c.p[b][0])?vs.get(c.p[b][0]):-9)-(vs.has(c.p[a][0])?vs.get(c.p[a][0]):-9));
+      res.cands=ordered;res.label=labelFor(c,ordered[0],num);
+      if(m.length>=2&&m[0][1]>0.15&&m[0][1]-m[1][1]>=0.15){const it=c.p[ordered[0]];res.sel={game:res.g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",low:it[7]||0}}
+    }else if(!res.cands.length){
+      const m=await fpMatch(img,res.g,framed,null);if(!m||!m.length)return res;
+      res.cands=m.slice(0,12).map(x=>pos.get(x[0])).filter(i=>i!==undefined);
+      if(res.cands.length)res.label=labelFor(c,res.cands[0],num)+" (da immagine)";
+    }
+  }catch(e){}
   return res;
 }
 const LANGW={
@@ -634,7 +702,7 @@ async function runQ(){
           q.j=JSON.parse(m[0]);
         }
         q.res=await matchScan(q.j);
-        if(!q.res.sel&&q.img)q.res=await visualRank(q.img,q.res);
+        if(q.img)q.res=await fpRefine(q.img,q.res,!!q.img._framed);
         q.status=q.res.sel?"ok":"pick";
       }catch(err){
         q.status="err";
