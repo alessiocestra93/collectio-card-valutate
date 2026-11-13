@@ -258,7 +258,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 19:20</div>
+    <div class="hint">Versione app: 13/11 19:45</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -614,7 +614,36 @@ function voteOcr(texts,codes){
   let lang="";const lm=all.match(/\b(?:[A-Z]{2,4})\s?(IT|EN|FR|DE|ES|PT)\b/)||all.match(/\b(IT|EN|FR|DE|ES|PT)\b\s*\d{1,3}\s*\//);if(lm)lang={EN:"ENG",IT:"ITA",FR:"FR",DE:"DE",ES:"ESP",PT:"POR"}[lm[1]];
   return {number:best,votes:bc,code,lang};
 }
+function findCardBox(img){
+  const M=320,k=Math.min(1,M/Math.max(img.width,img.height)),W=Math.round(img.width*k),H=Math.round(img.height*k);
+  const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(img,0,0,W,H);
+  const d=g.getImageData(0,0,W,H).data;const m=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],mx=Math.max(r,gg,b),mn=Math.min(r,gg,b);m[i]=(mx>50&&(mx-mn)/mx>0.35)?1:0}
+  const run=(p0,th)=>{const n=p0.length,r=Math.max(2,Math.round(n*0.02)),prof=new Float32Array(n);for(let i=0;i<n;i++){let s=0,c=0;for(let j=i-r;j<=i+r;j++)if(j>=0&&j<n){s+=p0[j];c++}prof[i]=s/c}
+    const on=Array.from(prof,v=>v>th);const gap=Math.round(n*0.06);for(let i=0;i<n;i++)if(!on[i]){let j=i;while(j<n&&!on[j])j++;if(i>0&&j<n&&j-i<=gap)for(let q=i;q<j;q++)on[q]=true;i=j}
+    let bs=0,be=-1,cs=-1;for(let i=0;i<=n;i++){if(i<n&&on[i]){if(cs<0)cs=i}else if(cs>=0){if(i-1-cs>be-bs){bs=cs;be=i-1}cs=-1}}return be>=bs?[bs,be]:null};
+  // prima colonne su tutta l'altezza, poi righe solo nelle colonne trovate, poi rifinisci colonne
+  const col=new Float32Array(W);for(let x=0;x<W;x++){let s=0;for(let y=0;y<H;y++)s+=m[y*W+x];col[x]=s/H}
+  let cx=run(col,0.1);if(!cx)return null;
+  const row=new Float32Array(H);for(let y=0;y<H;y++){let s=0;for(let x=cx[0];x<=cx[1];x++)s+=m[y*W+x];row[y]=s/(cx[1]-cx[0]+1)}
+  const ry=run(row,0.15);if(!ry)return null;
+  for(let x=0;x<W;x++){let s=0;for(let y=ry[0];y<=ry[1];y++)s+=m[y*W+x];col[x]=s/(ry[1]-ry[0]+1)}
+  cx=run(col,0.15);if(!cx)return null;
+  const bw=cx[1]-cx[0]+1,bh=ry[1]-ry[0]+1;if(bw*bh<W*H*0.06)return null;
+  const asp=bw/bh;let rot=0;if(asp>1.15&&asp<1.75)rot=90;else if(!(asp>0.55&&asp<0.9))return null;
+  return {x:cx[0]/k,y:ry[0]/k,w:bw/k,h:bh/k,rot};
+}
+function cropBox(img,b){const pad=0.01;const x=Math.max(0,b.x-b.w*pad),y=Math.max(0,b.y-b.h*pad),w=Math.min(img.width-x,b.w*(1+2*pad)),h=Math.min(img.height-y,b.h*(1+2*pad));const c=document.createElement("canvas");c.width=Math.round(w);c.height=Math.round(h);c.getContext("2d").drawImage(img,x,y,w,h,0,0,c.width,c.height);return c}
 async function ocrRead(img){
+  if(!img._framed){
+    const b=findCardBox(img);
+    if(b){const cr=cropBox(img,b);const rots=b.rot?[270,90]:[0];let first=null;
+      for(const r of rots){const im=fpRotated(cr,r);im._framed=true;try{const j=await ocrReadCore(im);if(j.number){img._crop=im;return j}if(!first)first=j}catch(e){}}
+      if(first)return first;}
+  }
+  return ocrReadCore(img);
+}
+async function ocrReadCore(img){
   const w=await ocrWorker();const framed=!!img._framed;const codes=await knownCodes();
   const texts=[];let v={number:"",votes:0,code:""};
   const list=framed?OCR_VARIANTS_FRAMED:OCR_VARIANTS_FREE;
@@ -704,7 +733,7 @@ async function runQ(){
           q.j=JSON.parse(m[0]);
         }
         q.res=await matchScan(q.j);
-        if(q.img)q.res=await fpRefine(q.img,q.res,!!q.img._framed);
+        if(q.img)q.res=await fpRefine(q.img._crop||q.img,q.res,!!(q.img._framed||q.img._crop));
         q.status=q.res.sel?"ok":"pick";
       }catch(err){
         q.status="err";
