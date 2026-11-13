@@ -264,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 22:05</div>
+    <div class="hint">Versione app: 13/11 22:30</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -460,7 +460,8 @@ const SCAN_PROMPT=`Sei un esperto di carte collezionabili. Identifica la carta n
 {"game":"Pokemon|OnePiece|DragonBallSuper|Magic|YuGiOh|Lorcana|altro","language":"ITA|ENG|JAP|FR|DE|ESP|POR|KOR|CHN","name_en":"nome della carta in INGLESE (traducilo se stampato in un'altra lingua; per Pokémon includi suffissi come ex, V, VMAX, GX)","printed_code":"riga del codice stampata in basso sulla carta, copiata esattamente come appare, es. 'OBF EN 228/197', 'G MEW IT 199/165', 'SV2a 201/165', 'OP02-036', 'LOB-IT001'; vuoto se non leggibile","number":"solo il numero di collezione, es. 228/197, OP02-036, FB01-001, LOB-001","set_code":"sigla del set stampata in basso a sinistra prima del numero (es. OBF, MEW, PAF, SVI, SV2a, sv8a); per One Piece/Dragon Ball la parte prima del trattino (OP02, FB01); vuoto se assente","set_name_en":"nome inglese dell'espansione se lo riconosci, altrimenti vuoto","notes":"difetti visibili (pieghe, graffi, bordi) in poche parole, in italiano; vuoto se nessuno"}
 Dragon Ball Fusion World e Dragon Ball Masters vanno entrambi come DragonBallSuper. La lingua è quella in cui è stampata la carta. Se nella foto ci sono più carte, descrivi quella più grande e centrale.`;
 $("scanCam").onchange=e=>$("scanFile").onchange(e);
-$("scanFile").onchange=async e=>{
+$("scanFile").addEventListener("pointerdown",embWarm);
+$("scanFile").onchange=async e=>{embWarm();
   let files=[...e.target.files];e.target.value="";if(!files.length)return;
   const pm=MODE==="price";if(pm){files=files.slice(0,1);QCUR=null;$("scanHint").textContent="Riconoscimento in corso…"}
   for(const f of files){
@@ -608,6 +609,95 @@ async function fpRefine(img,res,framed){
   }catch(e){}
   return res;
 }
+/* ---- Riconoscimento per immagine (firma DINOv2, gratis, sul telefono) ---- */
+const EMB={},EMBV=1;let EMB_SESS=null;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("script"));document.head.appendChild(s)})}
+async function embSession(){
+  if(EMB_SESS)return EMB_SESS;
+  EMB_SESS=(async()=>{
+    if(!window.ort)await loadScript("vendor/ort/ort.wasm.min.js");
+    ort.env.wasm.wasmPaths=new URL("vendor/ort/",location.href).href;
+    ort.env.wasm.numThreads=self.crossOriginIsolated?Math.min(4,navigator.hardwareConcurrency||1):1;
+    return ort.InferenceSession.create("models/dinov2s.onnx",{executionProviders:["wasm"],graphOptimizationLevel:"all"});
+  })();
+  try{return await EMB_SESS}catch(e){EMB_SESS=null;throw e}
+}
+async function embLoad(g){
+  if(EMB[g]!==undefined)return EMB[g];
+  EMB[g]=null;
+  try{const r=await fetch(`data/emb_${g}.json`);if(!r.ok)return null;const d=await r.json();
+    const b=await fetch(`data/emb_${g}.bin`);if(!b.ok)return null;const M=new Int8Array(await b.arrayBuffer());
+    if(M.length!==d.n*d.d)return null;
+    const pos=new Map();d.ids.forEach((id,i)=>pos.set(id,i));
+    EMB[g]={ids:d.ids,M,n:d.n,d:d.d,size:d.size||224,pos};
+  }catch(e){EMB[g]=null}
+  return EMB[g];
+}
+// canvas della carta -> tensore 224x224 (ritaglio interno come nel catalogo)
+function embPixels(src,S){
+  const W=src.width,H=src.height;let sx=W*0.05,sy=H*0.04,sw=W*0.9,sh=H*0.92;
+  let cur=src;// riduzione a metà ripetuta per evitare aliasing
+  while(sw>S*2.2&&sh>S*2.2){const c=document.createElement("canvas");c.width=Math.round(sw/2);c.height=Math.round(sh/2);const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(cur,sx,sy,sw,sh,0,0,c.width,c.height);cur=c;sx=0;sy=0;sw=c.width;sh=c.height}
+  const c=document.createElement("canvas");c.width=S;c.height=S;const g=c.getContext("2d",{willReadFrequently:true});g.imageSmoothingQuality="high";g.drawImage(cur,sx,sy,sw,sh,0,0,S,S);
+  const d=g.getImageData(0,0,S,S).data,N=S*S,out=new Float32Array(3*N);
+  const mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225];
+  for(let i=0;i<N;i++)for(let k=0;k<3;k++)out[k*N+i]=(d[i*4+k]/255-mean[k])/std[k];
+  return out;
+}
+async function embVec(canvas,S){
+  const s=await embSession();const t=new ort.Tensor("float32",embPixels(canvas,S),[1,3,S,S]);
+  const r=await s.run({[s.inputNames[0]]:t});
+  let o=r.pooler_output,v;
+  if(o)v=o.data;else{o=r[s.outputNames[0]];const D=o.dims[o.dims.length-1];v=o.data.slice(0,D)}
+  let n=0;for(let i=0;i<v.length;i++)n+=v[i]*v[i];n=Math.sqrt(n)||1;const q=new Float32Array(v.length);for(let i=0;i<v.length;i++)q[i]=v[i]/n;return q;
+}
+function embScores(db,v){const {M,n,d}=db,out=new Float32Array(n);for(let i=0;i<n;i++){let s=0;const o=i*d;for(let k=0;k<d;k++)s+=M[o+k]*v[k];out[i]=s/127}return out}
+// ritagli possibili della carta nella foto
+function embCrops(img){
+  if(img._framed)return [img];
+  const b=findCardBox(img);
+  if(b){const cr=cropBox(img,b);return b.rot?[fpRotated(cr,90),fpRotated(cr,270)]:[cr]}
+  const R=[],W=img.width,H=img.height,asp=63/88;
+  for(const sc of [0.9,0.7]){let h=H*sc,w=h*asp;if(w>W*0.95){w=W*0.95;h=w/asp}const c=document.createElement("canvas");c.width=Math.round(w);c.height=Math.round(h);c.getContext("2d").drawImage(img,(W-w)/2,(H-h)/2,w,h,0,0,c.width,c.height);R.push(c)}
+  return R;
+}
+// risultato: [[idCardmarket, somiglianza], ...] migliori 40
+async function embMatch(img,g){
+  const db=await embLoad(g);if(!db)return null;
+  const best=new Float32Array(db.n).fill(-9);
+  for(const c of embCrops(img)){const sc=embScores(db,await embVec(c,db.size));for(let i=0;i<db.n;i++)if(sc[i]>best[i])best[i]=sc[i]}
+  const idx=[];for(let i=0;i<db.n;i++)idx.push(i);idx.sort((a,b)=>best[b]-best[a]);
+  return idx.slice(0,40).map(i=>[db.ids[i],best[i]]);
+}
+function selFrom(c,i,g){const it=c.p[i];return {game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",low:it[7]||0}}
+// unisce lettura del testo e immagine
+async function embRefine(res,em){
+  try{
+    if(!em||!em.length||res.g!=="Pokemon")return res;
+    const c=await getCat(res.g);const pos=catPos(c);
+    const num=(res.label.match(/\d{1,3}\/\d{2,3}|[A-Z]{2,4}\d{0,2}-[A-Z]{0,2}\d{3}/)||[""])[0];
+    const sim=new Map(em.map(x=>[x[0],x[1]]));
+    const ocrSet=new Set((res.cands||[]).slice(0,40).map(i=>c.p[i][0]));
+    const top=em[0][1];
+    // candidati: quelli del testo che l'immagine conferma + i migliori per immagine
+    const pool=new Map();
+    for(const id of ocrSet){const s=sim.has(id)?sim.get(id):-1;pool.set(id,s+0.06)}
+    for(const [id,s] of em.slice(0,15)){if(!pool.has(id))pool.set(id,s)}
+    let order=[...pool.entries()].filter(([id])=>pos.has(id)).sort((a,b)=>b[1]-a[1]);
+    if(!order.length)return res;
+    // se il testo indica carte che l'immagine non vede per niente, vince l'immagine
+    if(ocrSet.size&&order[0][1]-0.06<top-0.12)order.sort((a,b)=>(sim.get(b[0])??-1)-(sim.get(a[0])??-1));
+    const ids=order.map(x=>x[0]);
+    res.cands=ids.map(id=>pos.get(id));
+    const b0=order[0],b1=order[1];const s0=sim.get(b0[0])??-1;
+    res.label=labelFor(c,res.cands[0],num)+(ocrSet.has(b0[0])?"":" (da immagine)");
+    res.embTop=s0;
+    const margin=b1?b0[1]-b1[1]:1;
+    if(!res.sel&&((ocrSet.has(b0[0])&&s0>0.55&&margin>0.02)||(s0>0.72&&margin>0.06)))res.sel=selFrom(c,res.cands[0],res.g);
+    else if(res.sel&&sim.has(res.sel.id)===false&&s0>0.75&&margin>0.06)res.sel=selFrom(c,res.cands[0],res.g);
+  }catch(e){}
+  return res;
+}
 const LANGW={
  ITA:"debolezza resistenza ritirata danni danno attacco questo questa scarta energia avversario mazzo mano carte regola infligge ogni volta viene messo prendi prende pesca tuoi tuo della dalla sulla",
  ENG:"weakness retreat damage damages attack this your opponent discard energy deck hand rule when knocked prize cards each does take draw from counter trigger character leader play during turn",
@@ -742,7 +832,8 @@ async function ocrReadCore(img){
 
 /* ---- Mirino fotocamera (solo sito esterno) ---- */
 let CAMSTREAM=null,CAMN=0;
-async function openCam(){
+function embWarm(){if(window.claude)return;embSession().catch(()=>{});embLoad("Pokemon")}
+async function openCam(){embWarm();
   $("cam").classList.remove("hide");CAMN=0;$("camN").textContent="";
   $("camDone").textContent=MODE==="price"?"Annulla":"Fine";
   try{
@@ -797,7 +888,11 @@ async function runQ(){
       try{
         if(useFree()){
           $("scanHint").textContent="Lettura gratuita in corso…";
-          q.j=await ocrRead(q.img);
+          const embP=(!window.claude&&q.img)?embMatch(q.img,"Pokemon").catch(()=>null):Promise.resolve(null);
+          let oerr=null;try{q.j=await ocrRead(q.img)}catch(e){oerr=e;q.j=null}
+          q.em=await embP;
+          if(!q.j){if(q.em&&q.em[0][1]>0.6)q.j={game:"Pokemon",language:"",number:"",set_code:"",name_en:"",printed_code:""};else throw oerr||new Error("noread")}
+          else if(q.em&&q.em[0][1]>0.78&&q.j.game!=="Pokemon"&&!q.j.number)q.j.game="Pokemon";
         }else{
           const blob=await new Promise((res,rej)=>toBlob(q.img,1400).toBlob(b=>b?res(b):rej(new Error("img")),"image/jpeg",0.85));
           const r=await SAMPLE(SCAN_PROMPT,{images:[blob],modelTier:"default"});
@@ -805,7 +900,9 @@ async function runQ(){
           q.j=JSON.parse(m[0]);
         }
         q.res=await matchScan(q.j);
-        if(q.img)q.res=await fpRefine(q.img._crop||q.img,q.res,!!(q.img._framed||q.img._crop));
+        if(q.em&&q.res.g==="Pokemon")q.res=await embRefine(q.res,q.em);
+        else if(q.img)q.res=await fpRefine(q.img._crop||q.img,q.res,!!(q.img._framed||q.img._crop));
+        delete q.em;
         q.status=q.res.sel?"ok":"pick";
       }catch(err){
         q.status="err";

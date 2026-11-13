@@ -39,6 +39,17 @@ jobs:
           tar xzf tesseract.js-5*.tgz && cp package/dist/tesseract.min.js package/dist/worker.min.js "$GITHUB_WORKSPACE/vendor/" && rm -rf package
           tar xzf tesseract.js-core-5*.tgz && cp package/tesseract-core*.js "$GITHUB_WORKSPACE/vendor/" && (cp package/tesseract-core*.wasm "$GITHUB_WORKSPACE/vendor/" 2>/dev/null || true)
           ls -la "$GITHUB_WORKSPACE/vendor"
+      - name: Prepara il riconoscimento per immagine
+        run: |
+          mkdir -p vendor/ort models && cd /tmp/npm
+          npm pack onnxruntime-web@1.20.1 >/dev/null
+          tar xzf onnxruntime-web-1.20.1.tgz && cp package/dist/ort.wasm.min.js package/dist/ort-wasm-simd-threaded.mjs package/dist/ort-wasm-simd-threaded.wasm "$GITHUB_WORKSPACE/vendor/ort/" && rm -rf package
+          cd "$GITHUB_WORKSPACE"
+          for U in https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_quantized.onnx https://huggingface.co/onnx-community/dinov2-small/resolve/main/onnx/model_quantized.onnx; do
+            curl -fsSL -o models/dinov2s.onnx "$U" && break
+          done
+          ls -la vendor/ort models
+          test -s models/dinov2s.onnx
       - name: Scarica i dati TCGdex
         run: |
           git clone --depth 1 --filter=blob:none --sparse https://github.com/tcgdex/cards-database.git /tmp/tcgdex
@@ -54,12 +65,14 @@ jobs:
               assert len(d["p"])>1000, g
               print(g, len(d["p"]), d["d"])
           PY
-      - name: Impronte visive
+      - name: Impronte e firme visive
         timeout-minutes: 150
         run: |
           pip install --quiet pillow numpy
           git fetch --depth 1 origin fp-cache:fp-cache 2>/dev/null && git worktree add /tmp/fpcache fp-cache || (mkdir -p /tmp/fpcache && cd /tmp/fpcache && git init -q && git checkout -q -b fp-cache)
           python tools/fingerprints.py data /tmp/fpcache
+          pip install --quiet onnxruntime
+          python tools/embeddings.py data /tmp/fpcache models/dinov2s.onnx Pokemon
           cd /tmp/fpcache && git add -A && (git -c user.name=bot -c user.email=bot@example.com commit -qm "cache impronte" || true)
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:fp-cache
       - uses: actions/upload-pages-artifact@v3
