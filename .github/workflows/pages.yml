@@ -54,6 +54,12 @@ jobs:
               assert len(d["p"])>1000, g
               print(g, len(d["p"]), d["d"])
           PY
+      - name: Prezzi minimi CardTrader Zero
+        continue-on-error: true
+        timeout-minutes: 120
+        env:
+          CARDTRADER_TOKEN: ${{ secrets.CARDTRADER_TOKEN }}
+        run: python tools/cardtrader.py data
       - name: Impronte visive (solo carte nuove)
         run: |
           pip install --quiet pillow numpy
