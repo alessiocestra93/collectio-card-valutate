@@ -272,7 +272,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Catalogo incluso.</div>
     <div class="hint">Si aggiorna ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 22:45</div>
+    <div class="hint">Versione app: 13/11 23:05</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -523,7 +523,7 @@ function prepCanvas(img,x0,x1,y0,y1,maxW,mode){
   const inv=mode==="inv";for(let i=0;i<n;i++){const v=(L[i]<th)!==inv?0:255;a[i*4]=a[i*4+1]=a[i*4+2]=v}
   g.putImageData(d,0,0);return c;
 }
-const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0,0.45,0.9,0.98],1000,"inv","11"],[[0,0.3,0.92,0.99],1400,"inv","6"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
+const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0.5,1,0.84,0.99],1800,"raw","11"],[[0,0.45,0.9,0.98],1000,"inv","11"],[[0.5,1,0.84,0.99],1800,"lum","11"],[[0,0.3,0.92,0.99],1400,"inv","6"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
 const OCR_VARIANTS_FREE=[[[0,0.62,0.78,1],2000,"lum","11"],[[0,0.62,0.78,1],2000,"raw","11"],[[0,1,0.55,1],2000,"lum","11"],[[0,0.62,0.78,1],1400,"lum","6"],[[0,1,0,1],1800,"lum","11"]];
 function tri(s){s=" "+norm(s)+" ";const o=new Set();for(let i=0;i<s.length-2;i++)o.add(s.slice(i,i+3));return o}
 function triSim(a,b){if(!a.size||!b.size)return 0;let k=0;for(const x of a)if(b.has(x))k++;return k/Math.min(a.size,b.size)*(Math.min(a.size,b.size)/Math.max(a.size,b.size))**0.3}
@@ -675,7 +675,9 @@ async function embMatch(img,g){
   const best=new Float32Array(db.n).fill(-9);
   for(const c of embCrops(img)){const sc=embScores(db,await embVec(c,db.size));for(let i=0;i<db.n;i++)if(sc[i]>best[i])best[i]=sc[i]}
   const idx=[];for(let i=0;i<db.n;i++)idx.push(i);idx.sort((a,b)=>best[b]-best[a]);
-  return idx.slice(0,40).map(i=>[db.ids[i],best[i]]);
+  const out=idx.slice(0,40).map(i=>[db.ids[i],best[i]]);
+  out.simOf=id=>{const p=db.pos.get(id);return p===undefined?null:best[p]};
+  return out;
 }
 function selFrom(c,i,g){const it=c.p[i];return {game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",low:it[7]||0}}
 // unisce lettura del testo e immagine
@@ -684,25 +686,24 @@ async function embRefine(res,em){
     if(!em||!em.length||res.g!=="Pokemon")return res;
     const c=await getCat(res.g);const pos=catPos(c);
     const num=(res.label.match(/\d{1,3}\/\d{2,3}|[A-Z]{2,4}\d{0,2}-[A-Z]{0,2}\d{3}/)||[""])[0];
-    const sim=new Map(em.map(x=>[x[0],x[1]]));
-    const ocrSet=new Set((res.cands||[]).slice(0,40).map(i=>c.p[i][0]));
+    const S=id=>{const v=em.simOf?em.simOf(id):null;return v==null?-1:v};
     const top=em[0][1];
-    // candidati: quelli del testo che l'immagine conferma + i migliori per immagine
-    const pool=new Map();
-    for(const id of ocrSet){const s=sim.has(id)?sim.get(id):-1;pool.set(id,s+0.06)}
-    for(const [id,s] of em.slice(0,15)){if(!pool.has(id))pool.set(id,s)}
-    let order=[...pool.entries()].filter(([id])=>pos.has(id)).sort((a,b)=>b[1]-a[1]);
-    if(!order.length)return res;
-    // se il testo indica carte che l'immagine non vede per niente, vince l'immagine
-    if(ocrSet.size&&order[0][1]-0.06<top-0.12)order.sort((a,b)=>(sim.get(b[0])??-1)-(sim.get(a[0])??-1));
-    const ids=order.map(x=>x[0]);
+    let ids;let fromImg=false;
+    const oc=(res.cands||[]).slice(0,40).map(i=>c.p[i][0]);
+    if(oc.length){
+      // il testo (numero) comanda; l'immagine ordina i candidati
+      ids=[...oc].sort((a,b)=>S(b)-S(a));
+      if(top>=0.82&&top-S(ids[0])>=0.12){ids=em.slice(0,12).map(x=>x[0]);fromImg=true}
+    }else{ids=em.slice(0,12).map(x=>x[0]);fromImg=true}
+    ids=ids.filter(id=>pos.has(id));if(!ids.length)return res;
     res.cands=ids.map(id=>pos.get(id));
-    const b0=order[0],b1=order[1];const s0=sim.get(b0[0])??-1;
-    res.label=labelFor(c,res.cands[0],num)+(ocrSet.has(b0[0])?"":" (da immagine)");
-    res.embTop=s0;
-    const margin=b1?b0[1]-b1[1]:1;
-    if(!res.sel&&((ocrSet.has(b0[0])&&s0>0.55&&margin>0.02)||(s0>0.72&&margin>0.06)))res.sel=selFrom(c,res.cands[0],res.g);
-    else if(res.sel&&sim.has(res.sel.id)===false&&s0>0.75&&margin>0.06)res.sel=selFrom(c,res.cands[0],res.g);
+    res.label=labelFor(c,res.cands[0],num)+(fromImg?" (da immagine)":"");
+    const s0=S(ids[0]),s1=ids.length>1?S(ids[1]):-1;
+    const same=ids.length>1&&c.p[res.cands[0]][6]&&c.p[res.cands[0]][6]===c.p[res.cands[1]][6];
+    if(!res.sel&&!same){
+      if(!fromImg&&s0>0.5&&(s0-s1>=0.04||ids.length===1))res.sel=selFrom(c,res.cands[0],res.g);
+      else if(fromImg&&s0>=0.8&&s0-s1>=0.06)res.sel=selFrom(c,res.cands[0],res.g);
+    }
   }catch(e){}
   return res;
 }
