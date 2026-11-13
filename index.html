@@ -86,6 +86,14 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
 .ok{color:var(--ok)}
 .sug .sr{display:flex;align-items:center;gap:8px}.sug .st{flex:1;min-width:0}.sug .eye{flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-size:18px}
 .qi{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;margin-top:6px;cursor:pointer}.qi.on{border-color:var(--acc);background:var(--acc2)}.qi.done{opacity:.5}.qi img{width:42px;height:58px;object-fit:cover;border-radius:4px;flex:0 0 auto;background:var(--bg)}.qi .t{flex:1;min-width:0;font-size:14px}.qi .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qi .t small{color:var(--mute);font-size:12px}
+#cam{position:fixed;inset:0;z-index:50;background:#000}
+#camV{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#camG{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);height:min(66vh,calc(86vw*88/63));aspect-ratio:63/88;border:3px solid var(--acc);border-radius:14px;box-shadow:0 0 0 100vmax #0009}
+#camTip{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:16px;right:16px;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 3px #000}
+#camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s}
+#camBar{position:absolute;left:0;right:0;bottom:0;padding:18px 20px calc(18px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between}
+#camBar .btn{width:auto;min-width:90px}#camN{min-width:90px;text-align:right;color:#fff;font-weight:700}
+#camShot{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:var(--acc);cursor:pointer}
 .empty{color:var(--mute);text-align:center;padding:18px 0;font-size:14px}
 </style>
 </head>
@@ -319,6 +327,13 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
   <div><div class="l">Lotto · valore</div><div class="v" id="tVal">0,00 €</div></div>
   <div style="text-align:right"><div class="l">Offerta totale</div><div class="v o" id="tOff">0,00 €</div></div>
 </div>
+<div id="cam" class="hide">
+  <video id="camV" playsinline muted></video>
+  <div id="camG"></div>
+  <div id="camTip">Inquadra la carta dentro il riquadro, con il codice in basso ben leggibile</div>
+  <div id="camFlash"></div>
+  <div id="camBar"><button id="camDone" class="btn">Fine</button><button id="camShot" aria-label="Scatta"></button><span id="camN"></span></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -432,31 +447,75 @@ $("scanFile").onchange=async e=>{
 function useFree(){return S.scan==="free"||(S.scan!=="claude"&&!SAMPLE)||(S.scan==="claude"&&!SAMPLE)}
 let OCRW=null;
 function loadScript(u){return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=u;sc.onload=res;sc.onerror=()=>rej(new Error("ocrload"));document.head.appendChild(sc)})}
+const STANDALONE=!window.claude;
+function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))])}
+function ocrStatus(m){
+  if(!m||!m.status)return;const pc=Math.round((m.progress||0)*100);
+  const lab=/recogniz/.test(m.status)?"Lettura del testo":/load|initializ/.test(m.status)?"Preparazione lettore (solo la prima volta)":null;
+  if(lab)$("scanHint").textContent=`${lab}… ${pc}%`;
+}
 async function ocrWorker(){
   if(OCRW)return OCRW;
   OCRW=(async()=>{
-    if(!window.Tesseract)await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+    const local=STANDALONE;
+    const base=local?new URL("vendor/",location.href).href:"https://cdn.jsdelivr.net/npm/";
+    $("scanHint").textContent="Preparazione lettore (solo la prima volta)…";
+    if(!window.Tesseract){
+      try{await loadScript(local?base+"tesseract.min.js":base+"tesseract.js@5/dist/tesseract.min.js")}
+      catch(e){await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js")}
+    }
     const jr=await fetch("ocr/eng.json");if(!jr.ok)throw new Error("ocrload");
     const b64=(await jr.json()).gz;const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
     let data;
     if(typeof DecompressionStream!=="undefined"){data=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer())}
     else{await loadScript("https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako_inflate.min.js");data=pako.inflate(bin)}
-    const w=await Tesseract.createWorker([{code:"eng",data}],1,{gzip:false,cacheMethod:"none",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js"});
+    const opts=local?{corePath:base,workerPath:base+"worker.min.js",workerBlobURL:false}:{corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5",workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js"};
+    const w=await Tesseract.createWorker([{code:"eng",data}],1,{gzip:false,cacheMethod:"none",logger:ocrStatus,...opts});
+    await w.setParameters({tessedit_pageseg_mode:"11"});
     return w;
   })();
-  try{return await OCRW}catch(e){OCRW=null;throw new Error("ocrload")}
+  try{return await withTimeout(OCRW,120000)}catch(e){OCRW=null;throw new Error("ocrload")}
 }
-function cropCanvas(img,y0,y1,maxW){const sw=img.width,sh=img.height,sy=Math.round(sh*y0),h=Math.round(sh*(y1-y0));const k=Math.min(2,maxW/sw);const c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.4)";x.drawImage(img,0,sy,sw,h,0,0,c.width,c.height);return c}
+function cropCanvas(img,y0,y1,maxW){const sw=img.width,sh=img.height,sy=Math.round(sh*y0),h=Math.round(sh*(y1-y0));const k=Math.min(2.5,maxW/sw);const c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.5)";x.drawImage(img,0,sy,sw,h,0,0,c.width,c.height);return c}
 async function ocrRead(img){
   const w=await ocrWorker();
+  const framed=!!img._framed;
+  const passes=framed?[[0.84,1],[0,0.14]]:[[0.75,1],[0,0.22]];
   const parts=[];
-  for(const [a,b] of [[0.72,1],[0,0.25],[0,1]]){const r=await w.recognize(cropCanvas(img,a,b,1600));parts.push(r.data.text||"")}
-  const txt=parts.join("\n");
-  const j=parseOcr(txt,true);
+  for(const [a,b] of passes){const r=await withTimeout(w.recognize(cropCanvas(img,a,b,1400)),60000);parts.push(r.data.text||"")}
+  let j=parseOcr(parts.join("\n"),true);
+  if(!j.number&&!framed){const r=await withTimeout(w.recognize(cropCanvas(img,0,1,1400)),60000);parts.push(r.data.text||"");j=parseOcr(parts.join("\n"),true)}
   j.name_guess=(parts[1].split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' ,.-]/g," ").trim()).find(x=>x.replace(/[^A-Za-z]/g,"").length>=4)||"").slice(0,60);
   if(!j.number&&!j.name_guess)throw new Error("noread");
   return j;
 }
+/* ---- Mirino fotocamera (solo sito esterno) ---- */
+let CAMSTREAM=null,CAMN=0;
+async function openCam(){
+  $("cam").classList.remove("hide");CAMN=0;$("camN").textContent="";
+  $("camDone").textContent=MODE==="price"?"Annulla":"Fine";
+  try{
+    CAMSTREAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    const v=$("camV");v.srcObject=CAMSTREAM;await v.play();
+  }catch(e){closeCam();toast("Fotocamera non disponibile: uso il selettore foto");STANDALONE_CAM=false;$("scanCam").click();}
+}
+function closeCam(){$("cam").classList.add("hide");if(CAMSTREAM){CAMSTREAM.getTracks().forEach(t=>t.stop());CAMSTREAM=null}}
+function shoot(){
+  const v=$("camV"),g=$("camG");if(!v.videoWidth)return;
+  const vr=v.getBoundingClientRect(),gr=g.getBoundingClientRect();
+  const sc=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+  const ox=(vr.width-v.videoWidth*sc)/2,oy=(vr.height-v.videoHeight*sc)/2;
+  const sx=(gr.left-vr.left-ox)/sc,sy=(gr.top-vr.top-oy)/sc,sw=gr.width/sc,sh=gr.height/sc;
+  const c=document.createElement("canvas");c.width=Math.round(sw);c.height=Math.round(sh);
+  c.getContext("2d").drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);c._framed=true;
+  const q={n:++QN,status:"wait",thumb:toBlob(c,120).toDataURL("image/jpeg",0.7),img:c,price:MODE==="price"};
+  if(q.price){QCUR=null;closeCam()}else{CAMN++;$("camN").textContent=CAMN+" foto";}
+  QUEUE.push(q);renderQ();runQ();
+  const f=$("camFlash");f.style.opacity=1;setTimeout(()=>f.style.opacity=0,120);
+}
+let STANDALONE_CAM=STANDALONE&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+$("scanCam").addEventListener("click",e=>{if(STANDALONE_CAM){e.preventDefault();openCam()}});
+$("camShot").onclick=shoot;$("camDone").onclick=closeCam;
 function parseOcr(txt,soft){
   const T=txt.replace(/[|]/g," ").replace(/[‘’`´]/g,"'");
   const j={language:"",name_en:"",printed_code:"",number:"",set_code:"",ocr_words:[]};
@@ -505,7 +564,7 @@ async function runQ(){
       else if(QCUR===null&&q.status!=="err"&&MODE==="val")loadQ(q);
       renderQ();
     }
-  }finally{QBUSY=false;if($("scanHint").textContent.startsWith("Troppe"))$("scanHint").textContent=""}
+  }finally{QBUSY=false;if(/^(Troppe|Preparazione|Lettura)/.test($("scanHint").textContent)){const e=QUEUE.filter(q=>q.status==="err").slice(-1)[0];$("scanHint").textContent=e&&!QUEUE.some(q=>q.status==="ok"||q.status==="pick")?e.msg:""}}
 }
 async function matchScan(j){
   const games=[...$("game").options].map(o=>o.value);

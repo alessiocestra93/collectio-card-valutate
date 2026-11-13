@@ -32,6 +32,13 @@ jobs:
             curl -fsSL -o /tmp/src/ns$N.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_$N.json
             curl -fsSL -o /tmp/src/pg$N.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_$N.json
           done
+      - name: Prepara il lettore di testo (OCR)
+        run: |
+          mkdir -p vendor /tmp/npm && cd /tmp/npm
+          npm pack tesseract.js@5 tesseract.js-core@5 >/dev/null
+          tar xzf tesseract.js-5*.tgz && cp package/dist/tesseract.min.js package/dist/worker.min.js "$GITHUB_WORKSPACE/vendor/" && rm -rf package
+          tar xzf tesseract.js-core-5*.tgz && cp package/tesseract-core*.js "$GITHUB_WORKSPACE/vendor/" && (cp package/tesseract-core*.wasm "$GITHUB_WORKSPACE/vendor/" 2>/dev/null || true)
+          ls -la "$GITHUB_WORKSPACE/vendor"
       - name: Scarica i dati TCGdex
         run: |
           git clone --depth 1 --filter=blob:none --sparse https://github.com/tcgdex/cards-database.git /tmp/tcgdex
