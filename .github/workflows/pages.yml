@@ -73,6 +73,7 @@ jobs:
           python tools/fingerprints.py data /tmp/fpcache
           pip install --quiet onnxruntime
           python tools/embeddings.py data /tmp/fpcache models/dinov2s.onnx Pokemon
+          mkdir -p /tmp/fpcache/model && cp models/dinov2s.onnx /tmp/fpcache/model/
           cd /tmp/fpcache && git add -A && (git -c user.name=bot -c user.email=bot@example.com commit -qm "cache impronte" || true)
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:fp-cache
       - uses: actions/upload-pages-artifact@v3
