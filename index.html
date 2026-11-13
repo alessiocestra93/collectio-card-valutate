@@ -22,7 +22,7 @@ header h1{margin:0;display:flex;align-items:center;gap:8px;line-height:1}
 .logoTxt{display:flex;flex-direction:column;font-weight:800;letter-spacing:-.01em}.logoTxt b{font-size:16px;color:#fff}.logoTxt i{font-style:normal;font-size:10px;letter-spacing:.18em;color:var(--acc);margin-top:2px}
 .box{box-shadow:none}
 .box h2{color:var(--accInk)}
-body.mode-price .onlyVal{display:none!important}body:not(.mode-price) .onlyPrice{display:none!important}
+body.mode-price .onlyVal{display:none!important}body.graded .noGrade{display:none!important}body:not(.mode-price) .onlyPrice{display:none!important}
 .tabs{display:flex;gap:5px}
 .tab{border:1px solid #3a3a3a;background:#1d1d1d;color:#fff;padding:7px 9px;border-radius:999px;font-size:14px;cursor:pointer}
 .tab.on{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700}
@@ -165,24 +165,30 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
         </select></div>
       <div class="onlyVal"><label>Quantità</label><input id="qty" type="number" min="1" value="1" inputmode="numeric"></div>
     </div>
+    <div class="row">
+      <div><label>Gradazione</label>
+        <select id="grader"><option value="">Non gradata</option><option>PSA</option><option>BGS</option><option>CGC</option><option>SGC</option><option>TAG</option><option>ACE</option><option>Altro</option></select></div>
+      <div><label>Voto</label><input id="grade" inputmode="decimal" placeholder="es. 10"></div>
+    </div>
+    <div class="hint" id="gradeHint"></div>
   </div>
 
   <div class="box b2">
     <h2>2 · Controlla i prezzi</h2>
     <div class="row">
-      <a class="btn soft" id="cmLink" target="_blank" rel="noopener">Cardmarket ↗</a>
-      <a class="btn soft" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
+      <a class="btn soft noGrade" id="cmLink" target="_blank" rel="noopener">Cardmarket ↗</a>
+      <a class="btn soft noGrade" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
       <a class="btn soft" id="ebLink" target="_blank" rel="noopener">eBay venduti ↗</a>
     </div>
     <div class="hint onlyPrice">Cardmarket si apre con lingua, condizione e solo venditori professionali.</div>
     <div class="hint" id="cmHint"></div>
-    <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Carta non nel catalogo? Incolla il suo link Cardmarket</summary>
+    <div class="noGrade"><details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Carta non nel catalogo? Incolla il suo link Cardmarket</summary>
       <input id="cmUrl" inputmode="url" placeholder="link della pagina della carta" autocomplete="off" style="margin-top:6px">
     </details>
     <label><span class="onlyVal">Minimo Cardmarket (€)</span><span class="onlyPrice">Minimo Cardmarket – venditori professionali (€)</span></label>
     <input id="cm" inputmode="decimal" placeholder="es. 12,50">
-    <div class="hint" id="cmEst"></div>
-    <div><label>Minimo CardTrader Zero (€)</label>
+    <div class="hint" id="cmEst"></div></div>
+    <div class="noGrade"><label>Minimo CardTrader Zero (€)</label>
     <input id="ctp" inputmode="decimal" placeholder="es. 11,90">
     <div class="hint" id="ctEst"></div></div>
     <label>Ultimi venduti eBay (€) – anche più prezzi</label>
@@ -258,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 19:45</div>
+    <div class="hint">Versione app: 13/11 20:30</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -379,7 +385,10 @@ function links(){
   const cte=SEL&&CTD[SEL.game]&&CTD[SEL.game].p[String(SEL.id)];const ctb=cte?cte[0]:(SEL&&SEL.ct);
   $("ctLink").href=ctb?`https://www.cardtrader.com/it-IT/cards/${ctb}`:`https://www.cardtrader.com/it-IT/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq)}`;
   if(SEL){const num=(SEL.name.match(/(\S+\/\S+)$/)||[])[1]||"";base=SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,"")+(num?" "+num:"")}
-  const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")).trim();
+  const gr=$("grader").value,gv=$("grade").value.trim();
+  const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")+(gr?" "+gr+(gv?" "+gv:""):"")).trim();
+  document.body.classList.toggle("graded",!!gr);
+  $("gradeHint").textContent=gr?`Carta gradata ${gr}${gv?" "+gv:""}: si valuta solo con gli ultimi venduti eBay della stessa gradazione.`:"";
   $("ebLink").href=`https://www.${S.ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
 }
 
@@ -491,10 +500,10 @@ function prepCanvas(img,x0,x1,y0,y1,maxW,mode){
   for(let i=0;i<n;i++){const r=a[i*4],gg=a[i*4+1],bb=a[i*4+2];L[i]=mode==="min"?Math.min(r,gg,bb):(0.299*r+0.587*gg+0.114*bb)}
   const h=new Array(256).fill(0);for(let i=0;i<n;i++)h[L[i]]++;let sum=0;for(let i=0;i<256;i++)sum+=i*h[i];
   let sB=0,wB=0,mx=0,th=128;for(let t=0;t<256;t++){wB+=h[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*h[t];const v=wB*wF*((sB/wB)-((sum-sB)/wF))**2;if(v>mx){mx=v;th=t}}
-  for(let i=0;i<n;i++){const v=L[i]<th?0:255;a[i*4]=a[i*4+1]=a[i*4+2]=v}
+  const inv=mode==="inv";for(let i=0;i<n;i++){const v=(L[i]<th)!==inv?0:255;a[i*4]=a[i*4+1]=a[i*4+2]=v}
   g.putImageData(d,0,0);return c;
 }
-const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
+const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0,0.45,0.9,0.98],1000,"inv","11"],[[0,0.3,0.92,0.99],1400,"inv","6"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
 const OCR_VARIANTS_FREE=[[[0,0.62,0.78,1],2000,"lum","11"],[[0,0.62,0.78,1],2000,"raw","11"],[[0,1,0.55,1],2000,"lum","11"],[[0,0.62,0.78,1],1400,"lum","6"],[[0,1,0,1],1800,"lum","11"]];
 function tri(s){s=" "+norm(s)+" ";const o=new Set();for(let i=0;i<s.length-2;i++)o.add(s.slice(i,i+3));return o}
 function triSim(a,b){if(!a.size||!b.size)return 0;let k=0;for(const x of a)if(b.has(x))k++;return k/Math.min(a.size,b.size)*(Math.min(a.size,b.size)/Math.max(a.size,b.size))**0.3}
@@ -635,6 +644,11 @@ function findCardBox(img){
 }
 function cropBox(img,b){const pad=0.01;const x=Math.max(0,b.x-b.w*pad),y=Math.max(0,b.y-b.h*pad),w=Math.min(img.width-x,b.w*(1+2*pad)),h=Math.min(img.height-y,b.h*(1+2*pad));const c=document.createElement("canvas");c.width=Math.round(w);c.height=Math.round(h);c.getContext("2d").drawImage(img,x,y,w,h,0,0,c.width,c.height);return c}
 async function ocrRead(img){
+  const j=await ocrRead0(img);
+  if(!j.grader){try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(img,0,1,0,0.3,1400,"lum")),20000);const gd=detectGrade(r.data.text||"");if(gd){j.grader=gd.grader;j.grade=gd.grade}}catch(e){}}
+  return j;
+}
+async function ocrRead0(img){
   if(!img._framed){
     const b=findCardBox(img);
     if(b){const cr=cropBox(img,b);const rots=b.rot?[270,90]:[0];let first=null;
@@ -643,6 +657,31 @@ async function ocrRead(img){
   }
   return ocrReadCore(img);
 }
+function detectGame(t){
+  const sc={Pokemon:0,OnePiece:0,DragonBallSuper:0,YuGiOh:0,Magic:0,Lorcana:0};
+  if(/\b(OP|ST|EB|PRB)\s?\d{2}\s?-\s?\d{3}\b/i.test(t))sc.OnePiece+=5;
+  if(/DON\s?!!|\bCounter\b|Eiichiro|\bLeader\b|Trigger/i.test(t))sc.OnePiece+=2;
+  if(/\b(FB|FS|FP|SB)\s?\d{2}\s?-\s?\d{2,3}\b|\bBT\d{1,2}-\d{3}\b/i.test(t))sc.DragonBallSuper+=5;
+  if(/Fusion\s?World|BIRD\s?STUDIO|Dragon\s?Ball/i.test(t))sc.DragonBallSuper+=3;
+  if(/\bATK\s*\/|\bDEF\s*\/|KONAMI|\[\s*(SPELL|TRAP)|Effect\s+Monster|Mostro\s+(Effetto|Normale)/i.test(t))sc.YuGiOh+=4;
+  if(/\b[A-Z0-9]{3,4}-(EN|IT|DE|FR|SP|PT|JP)\d{3}\b/.test(t))sc.YuGiOh+=4;
+  if(/Wizards\s?of\s?the\s?Coast|\b(Creature|Creatura|Instant|Istantaneo|Sorcery|Stregoneria|Enchantment|Incantesimo|Artifact|Artefatto|Planeswalker|Legendary|Leggendari[oa])\b/i.test(t))sc.Magic+=3;
+  if(/Disney|Lorcana|Willpower|Volont[aà]|\bLore\b|Inkwell/i.test(t))sc.Lorcana+=4;
+  if(/\b(debolezza|weakness|resistenza|resistance|ritirata|retreat|Pok[eé]mon|faiblesse|schw[aä]che)\b/i.test(t))sc.Pokemon+=3;
+  if(/\b(PS|HP|KP|PV)\s?\d{2,3}\b/.test(t))sc.Pokemon+=2;
+  if(/\b\d{1,3}\s*\/\s*\d{2,3}\b/.test(t))sc.Pokemon+=3;
+  if(/\b(danni|damage|d[eé]g[aâ]ts|schaden|da[ñn]o|attacco|attack|energia|energy|[ée]nergie)\b/i.test(t))sc.Pokemon+=1;
+  let best="",bv=0;for(const k in sc)if(sc[k]>bv){bv=sc[k];best=k}
+  return bv>=3?best:"";
+}
+function detectGrade(t){
+  const T=t.toUpperCase();const m=T.match(/\b(PSA|BGS|BECKETT|CGC|SGC|TAG|ACE)\b/);if(!m)return null;
+  const g=m[1]==="BECKETT"?"BGS":m[1];
+  const after=T.slice(m.index,m.index+120)+" "+T;
+  const gm=after.match(/\b(?:GEM\s*MT|GEM\s*MINT|MINT|PRISTINE|NM[-\s]?MT\+?|NM|EX[-\s]?MT|BLACK\s*LABEL|GOLD\s*LABEL)?\s*(10|9\.5|9|8\.5|8|7\.5|7|6\.5|6|5\.5|5|4|3|2|1)\b/);
+  return {grader:g,grade:gm?gm[1]:""};
+}
+function latinWordCount(t){return (t.match(/\b[A-Za-zÀ-ÿ]{4,}\b/g)||[]).filter(w=>/[aeiouAEIOU]/.test(w)).length}
 async function ocrReadCore(img){
   const w=await ocrWorker();const framed=!!img._framed;const codes=await knownCodes();
   const texts=[];let v={number:"",votes:0,code:""};
@@ -652,15 +691,19 @@ async function ocrReadCore(img){
     const r=await withTimeout(w.recognize(prepCanvas(img,R[0],R[1],R[2],R[3],W,mode)),30000);texts.push(r.data.text||"");
     $("scanHint").textContent=`Lettura del codice… ${Math.round((i+1)/list.length*100)}%`;
     v=voteOcr(texts,codes);
-    if(v.number&&v.votes>=2&&(v.code||i>=2))break;
+    if(v.number&&v.votes>=2&&(v.code||i>=3)&&(v.lang||i>=4))break;
   }
   const other=parseOcr(texts.join("\n"),true);
   await w.setParameters({tessedit_pageseg_mode:"11"});
   const nr=framed?[0,0.75,0,0.12]:[0,1,0,0.3];let nt="";
   for(const m of ["lum","raw"]){const r=await withTimeout(w.recognize(prepCanvas(img,nr[0],nr[1],nr[2],nr[3],1400,m)),30000);nt=r.data.text||"";if(/[A-Za-z]{4,}/.test(nt))break}
-  let wl=detectLang(texts.join(" ")+" "+nt);
-  if(!wl&&framed){try{await w.setParameters({tessedit_pageseg_mode:"6"});const rb=await withTimeout(w.recognize(prepCanvas(img,0,1,0.55,0.86,1300,"lum")),30000);texts.push(rb.data.text||"");wl=detectLang(texts.join(" ")+" "+nt)}catch(e){}}
-  const j={language:v.lang||wl||other.language||"",name_en:"",game:other.game,number:v.number||other.number,set_code:v.code||(other.game?other.set_code:""),ocr_words:[...new Set((nt+" "+texts.join(" ")).split(/[^A-Za-zÀ-ÿ'-]+/).filter(x=>x.length>=4))].slice(0,80)};
+  let wl=detectLang(texts.join(" ")+" "+nt);let bodyDone=false;
+  if((!wl||!detectGame(texts.join(" ")+" "+nt))&&framed){bodyDone=true;try{await w.setParameters({tessedit_pageseg_mode:"6"});const rb=await withTimeout(w.recognize(prepCanvas(img,0,1,0.55,0.86,1300,"lum")),30000);texts.push(rb.data.text||"");wl=detectLang(texts.join(" ")+" "+nt)}catch(e){}}
+  const allT=texts.join("\n")+"\n"+nt;
+  let gameD=detectGame(allT)||other.game||"";
+  if(!wl&&bodyDone&&(v.number||other.number)&&latinWordCount(allT)<6)wl="JAP";
+  const gradeD=detectGrade(allT);
+  const j={language:v.lang||wl||other.language||"",name_en:"",game:gameD,grader:gradeD&&gradeD.grader,grade:gradeD&&gradeD.grade,number:v.number||other.number,set_code:v.code||(other.game?other.set_code:""),ocr_words:[...new Set((nt+" "+texts.join(" ")).split(/[^A-Za-zÀ-ÿ'-]+/).filter(x=>x.length>=4))].slice(0,80)};
   if(other.game&&other.game!=="Pokemon"){j.number=other.number;j.set_code=other.set_code}
   j.printed_code=[j.set_code,j.number].filter(Boolean).join(" ");
   j.name_lines=[...nt.split("\n"),...texts.join("\n").split("\n")].map(x=>x.replace(/[^A-Za-zÀ-ÿ' -]/g," ").replace(/\s+/g," ").trim()).filter(x=>/[A-Za-z]{4,}/.test(x)).slice(0,40);
@@ -755,7 +798,7 @@ async function matchScan(j){
   let num=String(j.number||"").trim(),code=String(j.set_code||"").trim();const sname=String(j.set_name_en||"").trim();
   if(!num){const m=pc.match(/\d{1,3}\s*\/\s*\d{1,3}|[A-Z]{1,4}\d{1,2}[A-Z]?-[A-Z]{0,2}\d{3}/i);if(m)num=m[0].replace(/\s/g,"")}
   if(!code){const t=pc.split(/\s+/).filter(x=>/^[A-Za-z]{2,4}\d{0,2}[a-z]?$/.test(x)&&!/^(EN|IT|JP|FR|DE|ES|PT|KR|CN)$/i.test(x));if(t.length)code=t[t.length-1]}
-  const out={g,lang:lo?lo.value:null,langTxt:lo?lo.text:$("lang").selectedOptions[0].text,label:[j.name_en,num].filter(Boolean).join(" ")||"?",notes:j.notes||"",sel:null,cands:[]};
+  const out={langGuess:!!lo,grader:j.grader||"",grade:j.grade||"",g,lang:lo?lo.value:null,langTxt:lo?lo.text:$("lang").selectedOptions[0].text,label:[j.name_en,num].filter(Boolean).join(" ")||"?",notes:j.notes||"",sel:null,cands:[]};
   out.label=[j.name_en,pc||num].filter(Boolean).join(" ")||"?";
   let c;try{c=await getCat(g)}catch(e){return out}
   const nameToks=norm(j.name_en||"").split(" ").filter(Boolean);
@@ -796,17 +839,17 @@ async function matchScan(j){
   if(best[0]>=5&&same===1)out.sel=mk(best[1]);
   out.cands=scored.slice(0,12).map(x=>x[1]);
   if(out.cands.length){const ex0=String(c.e[c.p[out.cands[0]][2]]||"");const jp=/\bJP\b|Japanese|\(JP\)/.test(ex0)||/[\u3040-\u30ff]/.test(c.p[out.cands[0]][4]||"");
-    if(jp&&!j.language){const o=[...$("lang").options].find(x=>x.dataset.k==="JAP");if(o){out.lang=o.value;out.langTxt=o.text}}}
+    if(jp&&!j.language){const o=[...$("lang").options].find(x=>x.dataset.k==="JAP");if(o){out.lang=o.value;out.langTxt=o.text;out.langGuess=true}}}
   if(!nameToks.length&&out.cands.length){const it=c.p[out.cands[0]];const base=it[1].replace(/\s*\[.*?\]/g,"").replace(/ — .*$/,"").trim();const ex=String(c.e[it[2]]||"");const sc=(ex.split(" · ")[1]||ex).trim();out.label=[base,sc,num].filter(Boolean).join(" ");}
   return out;
 }
 function loadQ(q){
   if(!q.res)return;clearTimeout(sugTimer);QCUR=q.n;const r=q.res;
   clearCard(true);
-  $("game").value=r.g;if(r.lang)$("lang").value=r.lang;
+  $("game").value=r.g;if(r.lang)$("lang").value=r.lang;$("grader").value=r.grader||"";$("grade").value=r.grade||"";
   SEL=r.sel?{...r.sel}:null;
   $("name").value=r.sel?r.sel.name:r.label;
-  $("scanHint").textContent=(q.price?"":`Foto ${q.n}: `)+`${r.label} · ${r.langTxt}`+(r.notes?` · ⚠️ ${r.notes}`:"");
+  $("scanHint").textContent=(q.price?"":`Foto ${q.n}: `)+(r.langGuess?"":"⚠️ lingua non riconosciuta, controllala · ")+`${r.label} · ${r.langTxt}`+(r.notes?` · ⚠️ ${r.notes}`:"");
   calc();
   if(!r.sel){
     const c=CAT[r.g];
@@ -870,8 +913,10 @@ function calc(){
   const cond=+$("cond").value, qty=Math.max(1,parseInt($("qty").value)||1);
   const cm=num($("cm").value), ebList=nums($("eb").value), ctv=num($("ctp").value);
   const ebMed=median(ebList), ebAdj=isFinite(ebMed)?ebMed*S.coef[cond]/100:NaN;
-  const hasC=isFinite(cm)&&cm>0, hasE=isFinite(ebAdj), hasT=isFinite(ctv)&&ctv>0;
-  const srcV=[];if(hasC)srcV.push(["Cardmarket",cm]);if(hasT)srcV.push(["CardTrader",ctv]);if(hasE)srcV.push(["eBay",ebAdj]);
+  const graded=!!$("grader").value;
+  const hasC=!graded&&isFinite(cm)&&cm>0, hasE=isFinite(ebAdj), hasT=!graded&&isFinite(ctv)&&ctv>0;
+  const ebUse=graded?ebMed:ebAdj;
+  const srcV=[];if(hasC)srcV.push(["Cardmarket",cm]);if(hasT)srcV.push(["CardTrader",ctv]);if(hasE)srcV.push(["eBay",ebUse]);
   let val=NaN,how="";
   if(srcV.length){
     if(S.rule==="cm"&&hasC){val=cm;how="solo Cardmarket"}
@@ -888,10 +933,10 @@ function calc(){
   $("rOffer").innerHTML=eur(offer)+(bulk?' <span class="tag">BULK</span>':"");
   $("rVal").textContent=eur(val);$("rSell").textContent=eur(sell);
   let d=`Base: ${how}.`+(bulk?"":` Offerta al ${pc}%.`);
-  if(hasE)d+=` eBay: mediana ${eur(ebMed)} su ${ebList.length} vendit${ebList.length>1?"e":"a"}`+(S.coef[cond]!==100?` × ${S.coef[cond]}% (${CABBR[cond]}) = ${eur(ebAdj)}`:"")+".";
+  if(hasE)d+=` eBay: mediana ${eur(ebMed)} su ${ebList.length} vendit${ebList.length>1?"e":"a"}`+(!graded&&S.coef[cond]!==100?` × ${S.coef[cond]}% (${CABBR[cond]}) = ${eur(ebAdj)}`:"")+".";
   if(qty>1)d+=` <b>× ${qty} = offerta ${eur(offer*qty)}</b>`;
   $("rDet").innerHTML=d;
-  cur={name:$("name").value.trim()||"(senza nome)",game:$("game").selectedOptions[0].text,lang:$("lang").selectedOptions[0].dataset.k,cond:CABBR[cond],qty,val,offer,bulk,pc};
+  cur={name:$("name").value.trim()||"(senza nome)",game:$("game").selectedOptions[0].text,lang:$("lang").selectedOptions[0].dataset.k,cond:$("grader").value?($("grader").value+" "+$("grade").value).trim():CABBR[cond],qty,val,offer,bulk,pc};
 }
 
 function renderLot(){
@@ -925,11 +970,11 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
 });
 $("ctp").addEventListener("input",()=>{if(CT_AUTO&&$("ctp").value!==CT_AUTO.v){CT_AUTO=null;$("ctEst").textContent=""}});
 $("cm").addEventListener("input",()=>{if(CM_AUTO&&$("cm").value!==CM_AUTO.v){CM_AUTO=null;$("cmEst").textContent=""}});
-["game","lang","cond","qty","cm","eb","pc","cmUrl","ctp","mk"].forEach(id=>{$(id).addEventListener("input",calc);$(id).addEventListener("change",calc)});
+["game","lang","cond","qty","cm","eb","pc","cmUrl","ctp","mk","grader","grade"].forEach(id=>{$(id).addEventListener("input",calc);$(id).addEventListener("change",calc)});
 $("v-set").addEventListener("input",saveSet);$("v-set").addEventListener("change",saveSet);
 $("add").onclick=()=>{calc();if(!cur){toast("Inserisci almeno un prezzo");return}LOT.push(cur);renderLot();toast("Aggiunta al lotto ✓");if(QCUR!==null)nextQ();else clearCard()};
 document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const v=num($("pc").value);$("pc").value=Math.max(0,(isFinite(v)?v:S.pct)+(+b.dataset.d));calc()});
-function clearCard(keep){CM_AUTO=null;CT_AUTO=null;$("cmEst").textContent="";$("ctEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
+function clearCard(keep){$("grader").value="";$("grade").value="";CM_AUTO=null;CT_AUTO=null;$("cmEst").textContent="";$("ctEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
 $("clear").onclick=()=>clearCard();
 $("lotList").onclick=e=>{const k=e.target.dataset.k;if(k!==undefined){LOT.splice(+k,1);renderLot()}};
 $("empty").onclick=()=>{if(LOT.length)$("confirmBox").classList.remove("hide")};
@@ -971,7 +1016,8 @@ function calcPrice(){
   const cond=+$("cond").value;
   const cm=num($("cm").value),ct=num($("ctp").value),ebList=nums($("eb").value);
   const ebMed=median(ebList),ebAdj=isFinite(ebMed)?ebMed*S.coef[cond]/100:NaN;
-  const src=[];if(isFinite(cm)&&cm>0)src.push(["Cardmarket",cm]);if(isFinite(ct)&&ct>0)src.push(["CardTrader",ct]);if(isFinite(ebAdj))src.push(["eBay",ebAdj]);
+  const graded=!!$("grader").value;
+  const src=[];if(!graded&&isFinite(cm)&&cm>0)src.push(["Cardmarket",cm]);if(!graded&&isFinite(ct)&&ct>0)src.push(["CardTrader",ct]);if(isFinite(ebAdj))src.push(["eBay",graded?ebMed:ebAdj]);
   const st=parseFloat(S.round)||0.1;
   const mkv=num($("mk").value),mk=isFinite(mkv)?mkv:S.markup;
   let base=NaN,how="";
