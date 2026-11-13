@@ -470,11 +470,12 @@ async function ocrWorker(){
     if(typeof DecompressionStream!=="undefined"){data=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer())}
     else{await loadScript("https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako_inflate.min.js");data=pako.inflate(bin)}
     const opts=local?{corePath:base,workerPath:base+"worker.min.js",workerBlobURL:false}:{corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5",workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js"};
-    const w=await Tesseract.createWorker([{code:"eng",data}],1,{gzip:false,cacheMethod:"none",logger:ocrStatus,...opts});
+    const langUrl=URL.createObjectURL(new Blob([data]));
+    const w=await Tesseract.createWorker("eng",1,{langPath:langUrl+"#",gzip:false,cacheMethod:"none",logger:ocrStatus,...opts});
     await w.setParameters({tessedit_pageseg_mode:"11"});
     return w;
   })();
-  try{return await withTimeout(OCRW,120000)}catch(e){OCRW=null;throw new Error("ocrload")}
+  try{return await withTimeout(OCRW,45000)}catch(e){OCRW=null;throw new Error("ocrload")}
 }
 function cropCanvas(img,y0,y1,maxW){const sw=img.width,sh=img.height,sy=Math.round(sh*y0),h=Math.round(sh*(y1-y0));const k=Math.min(2.5,maxW/sw);const c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.5)";x.drawImage(img,0,sy,sw,h,0,0,c.width,c.height);return c}
 async function ocrRead(img){
@@ -482,9 +483,9 @@ async function ocrRead(img){
   const framed=!!img._framed;
   const passes=framed?[[0.84,1],[0,0.14]]:[[0.75,1],[0,0.22]];
   const parts=[];
-  for(const [a,b] of passes){const r=await withTimeout(w.recognize(cropCanvas(img,a,b,1400)),60000);parts.push(r.data.text||"")}
+  for(const [a,b] of passes){const r=await withTimeout(w.recognize(cropCanvas(img,a,b,1400)),30000);parts.push(r.data.text||"")}
   let j=parseOcr(parts.join("\n"),true);
-  if(!j.number&&!framed){const r=await withTimeout(w.recognize(cropCanvas(img,0,1,1400)),60000);parts.push(r.data.text||"");j=parseOcr(parts.join("\n"),true)}
+  if(!j.number&&!framed){const r=await withTimeout(w.recognize(cropCanvas(img,0,1,1400)),30000);parts.push(r.data.text||"");j=parseOcr(parts.join("\n"),true)}
   j.name_guess=(parts[1].split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' ,.-]/g," ").trim()).find(x=>x.replace(/[^A-Za-z]/g,"").length>=4)||"").slice(0,60);
   if(!j.number&&!j.name_guess)throw new Error("noread");
   return j;
