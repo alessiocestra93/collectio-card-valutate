@@ -100,8 +100,12 @@ def tcgdex_map():
             sen = sname.get("en") or sname.get("ja") or next(iter(sname.values()), "")
             if st.get("cm") and sname.get("en"):
                 exp_names[st["cm"]] = sname["en"]
+            serie = load_set(os.path.dirname(setpath) + ".ts")
+            sid = os.path.basename(os.path.dirname(setpath)) if root == "data-asia" else serie.get("id", "")
+            img = ("ja/" if root == "data-asia" else "en/") + "/".join([sid, st.get("id", ""), num]) if sid and st.get("id") else ""
             for i in ids:
                 res.setdefault(i, {
+                    "img": img,
                     "en": nm.get("en", ""), "it": nm.get("it", ""), "ja": nm.get("ja", ""),
                     "set": sen, "setit": sname.get("it", ""), "abbr": st.get("abbr", "") or (st.get("id", "") if root == "data-asia" else ""),
                     "num": num, "count": st.get("count", ""), "ct": ctmap.get(i, 0),
@@ -150,10 +154,13 @@ def build(gid, slug, tdx=None, tdx_exp=None):
         t = trend.get(pid)
         row.append(t if t is not None else 0)
         ct = tdx[pid]["ct"] if (tdx and pid in tdx) else 0
-        if extra or ct:
+        img = tdx[pid]["img"] if (tdx and pid in tdx) else ""
+        if extra or ct or img:
             row.append(extra)
-        if ct:
+        if ct or img:
             row.append(ct)
+        if img:
+            row.append(img)
         rows.append(row)
         if e in exps:
             used_exp.add(e)

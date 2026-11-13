@@ -84,7 +84,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
 .sug{position:absolute;left:0;right:0;top:100%;z-index:8;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:4px;max-height:300px;overflow:auto;box-shadow:0 8px 24px #000a}
 .sug div{padding:10px 11px;border-bottom:1px solid var(--line);cursor:pointer;font-size:15px}.sug div:last-child{border-bottom:0}.sug small{color:var(--mute);display:block;font-size:12px}
 .ok{color:var(--ok)}
-.sug .sr{display:flex;align-items:center;gap:8px}.sug .st{flex:1;min-width:0}.sug .eye{flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-size:18px}
+.sug .sr{display:flex;align-items:center;gap:8px}.sug .cimg{width:46px;height:64px;object-fit:cover;border-radius:4px;flex:0 0 auto;background:#2a2a2a}.sug .st{flex:1;min-width:0}.sug .eye{flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-size:18px}
 .qi{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;margin-top:6px;cursor:pointer}.qi.on{border-color:var(--acc);background:var(--acc2)}.qi.done{opacity:.5}.qi img{width:42px;height:58px;object-fit:cover;border-radius:4px;flex:0 0 auto;background:var(--bg)}.qi .t{flex:1;min-width:0;font-size:14px}.qi .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qi .t small{color:var(--mute);font-size:12px}
 #cam{position:fixed;inset:0;z-index:50;background:#000}
 #camV{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -256,7 +256,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 17:25</div>
+    <div class="hint">Versione app: 13/11 17:45</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -403,7 +403,8 @@ async function prepGame(){
 }
 function sugRow(c,i){const it=c.p[i],ex=c.e[it[2]],g=$("game").value;
   const u=`https://www.cardmarket.com/it/${g}/Products?idProduct=${it[0]}&language=${$("lang").value}&minCondition=${$("cond").value}`;
-  return `<div data-i="${i}" class="sr"><span class="st">${esc(it[1])}<small>${ex?esc(ex)+" · ":""}${it[3]?"trend CM "+eur(it[3])+" · ":""}ID ${it[0]}</small></span><a class="eye" href="${u}" target="_blank" rel="noopener" title="Vedi la carta su Cardmarket">👁</a></div>`}
+  const im=(!window.claude&&it[6])?`<img class="cimg" loading="lazy" src="https://assets.tcgdex.net/${it[6]}/low.webp" alt="" onerror="this.style.visibility='hidden'">`:"";
+  return `<div data-i="${i}" class="sr">${im}<span class="st">${esc(it[1])}<small>${ex?esc(ex)+" · ":""}${it[3]?"trend CM "+eur(it[3])+" · ":""}ID ${it[0]}</small></span><a class="eye" href="${u}" target="_blank" rel="noopener" title="Vedi la carta su Cardmarket">👁</a></div>`}
 function hideSug(){$("sug").classList.add("hide")}
 let sugTimer=null;
 function showSug(){clearTimeout(sugTimer);sugTimer=setTimeout(doSug,120)}
@@ -420,7 +421,7 @@ function doSug(){
   $("sug").classList.remove("hide");
 }
 $("sug").onmousedown=e=>e.preventDefault();
-$("sug").onclick=e=>{if(e.target.closest(".eye"))return;const d=e.target.closest("[data-i]");if(!d)return;const g=$("game").value,c=CAT[g],it=c.p[+d.dataset.i];SEL={game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0};$("name").value=it[1];hideSug();calc();const q=QUEUE.find(z=>z.n===QCUR);if(q&&q.res){q.res.sel={...SEL};q.status="ok";renderQ()}};
+$("sug").onclick=e=>{if(e.target.closest(".eye"))return;const d=e.target.closest("[data-i]");if(!d)return;const g=$("game").value,c=CAT[g],it=c.p[+d.dataset.i];SEL={game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||""};$("name").value=it[1];hideSug();calc();const q=QUEUE.find(z=>z.n===QCUR);if(q&&q.res){q.res.sel={...SEL};q.status="ok";renderQ()}};
 $("name").addEventListener("input",()=>{if(SEL&&$("name").value!==SEL.name)SEL=null;showSug();calc()});
 $("name").addEventListener("blur",()=>setTimeout(hideSug,150));
 $("name").addEventListener("focus",showSug);
@@ -478,19 +479,53 @@ async function ocrWorker(){
   })();
   try{return await withTimeout(OCRW,45000)}catch(e){OCRW=null;throw new Error("ocrload")}
 }
-function cropCanvas(img,y0,y1,maxW){const sw=img.width,sh=img.height,sy=Math.round(sh*y0),h=Math.round(sh*(y1-y0));const k=Math.min(2.5,maxW/sw);const c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.5)";x.drawImage(img,0,sy,sw,h,0,0,c.width,c.height);return c}
+function prepCanvas(img,x0,x1,y0,y1,maxW,mode){
+  const sw=img.width*(x1-x0),sh=img.height*(y1-y0);const k=Math.min(4,maxW/sw);
+  const c=document.createElement("canvas");c.width=Math.max(1,Math.round(sw*k));c.height=Math.max(1,Math.round(sh*k));
+  const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(img,img.width*x0,img.height*y0,sw,sh,0,0,c.width,c.height);
+  if(mode==="raw")return c;
+  const d=g.getImageData(0,0,c.width,c.height),a=d.data,n=c.width*c.height,L=new Uint8ClampedArray(n);
+  for(let i=0;i<n;i++){const r=a[i*4],gg=a[i*4+1],bb=a[i*4+2];L[i]=mode==="min"?Math.min(r,gg,bb):(0.299*r+0.587*gg+0.114*bb)}
+  const h=new Array(256).fill(0);for(let i=0;i<n;i++)h[L[i]]++;let sum=0;for(let i=0;i<256;i++)sum+=i*h[i];
+  let sB=0,wB=0,mx=0,th=128;for(let t=0;t<256;t++){wB+=h[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*h[t];const v=wB*wF*((sB/wB)-((sum-sB)/wF))**2;if(v>mx){mx=v;th=t}}
+  for(let i=0;i<n;i++){const v=L[i]<th?0:255;a[i*4]=a[i*4+1]=a[i*4+2]=v}
+  g.putImageData(d,0,0);return c;
+}
+const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
+const OCR_VARIANTS_FREE=[[[0,0.62,0.78,1],2000,"lum","11"],[[0,0.62,0.78,1],2000,"raw","11"],[[0,1,0.55,1],2000,"lum","11"],[[0,0.62,0.78,1],1400,"lum","6"],[[0,1,0,1],1800,"lum","11"]];
+async function knownCodes(){let c;try{c=await getCat($("game").value)}catch(e){return new Set()}if(c._codes)return c._codes;const s=new Set();for(const k in c.e){const p=String(c.e[k]).split(" · ");if(p[1])s.add(p[1].toUpperCase())}c._codes=s;return s}
+function voteOcr(texts,codes){
+  const all=texts.join("\n");const cnt={};let m;const re=/(\d{1,3})\s*\/\s*(\d{2,3})/g;
+  for(const t of texts){const seen=new Set();while((m=re.exec(t))){const k=m[1].padStart(3,"0")+"/"+m[2];if(!seen.has(k)){cnt[k]=(cnt[k]||0)+1;seen.add(k)}}}
+  let best="",bc=0;for(const k in cnt)if(cnt[k]>bc){bc=cnt[k];best=k}
+  let code="";const toks=all.toUpperCase().split(/[^A-Z0-9]+/);for(const t of toks){if(t.length>=3&&codes.has(t)){code=t;break}}
+  if(!code){for(const t of toks){const t2=t.replace(/(IT|EN|FR|DE|ES|PT)$/,"");if(t2.length>=3&&codes.has(t2)){code=t2;break}}}
+  let lang="";const lm=all.match(/\b(?:[A-Z]{2,4})\s?(IT|EN|FR|DE|ES|PT)\b/)||all.match(/\b(IT|EN|FR|DE|ES|PT)\b\s*\d{1,3}\s*\//);if(lm)lang={EN:"ENG",IT:"ITA",FR:"FR",DE:"DE",ES:"ESP",PT:"POR"}[lm[1]];
+  return {number:best,votes:bc,code,lang};
+}
 async function ocrRead(img){
-  const w=await ocrWorker();
-  const framed=!!img._framed;
-  const passes=framed?[[0.84,1],[0,0.14]]:[[0.75,1],[0,0.22]];
-  const parts=[];
-  for(const [a,b] of passes){const r=await withTimeout(w.recognize(cropCanvas(img,a,b,1400)),30000);parts.push(r.data.text||"")}
-  let j=parseOcr(parts.join("\n"),true);
-  if(!j.number&&!framed){const r=await withTimeout(w.recognize(cropCanvas(img,0,1,1400)),30000);parts.push(r.data.text||"");j=parseOcr(parts.join("\n"),true)}
-  j.name_guess=(parts[1].split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' ,.-]/g," ").trim()).find(x=>x.replace(/[^A-Za-z]/g,"").length>=4)||"").slice(0,60);
+  const w=await ocrWorker();const framed=!!img._framed;const codes=await knownCodes();
+  const texts=[];let v={number:"",votes:0,code:""};
+  const list=framed?OCR_VARIANTS_FRAMED:OCR_VARIANTS_FREE;
+  for(let i=0;i<list.length;i++){const [R,W,mode,psm]=list[i];
+    await w.setParameters({tessedit_pageseg_mode:psm});
+    const r=await withTimeout(w.recognize(prepCanvas(img,R[0],R[1],R[2],R[3],W,mode)),30000);texts.push(r.data.text||"");
+    $("scanHint").textContent=`Lettura del codice… ${Math.round((i+1)/list.length*100)}%`;
+    v=voteOcr(texts,codes);
+    if(v.number&&v.votes>=2&&(v.code||i>=2))break;
+  }
+  const other=parseOcr(texts.join("\n"),true);
+  await w.setParameters({tessedit_pageseg_mode:"11"});
+  const nr=framed?[0,0.75,0,0.12]:[0,1,0,0.3];let nt="";
+  for(const m of ["lum","raw"]){const r=await withTimeout(w.recognize(prepCanvas(img,nr[0],nr[1],nr[2],nr[3],1400,m)),30000);nt=r.data.text||"";if(/[A-Za-z]{4,}/.test(nt))break}
+  const j={language:v.lang||other.language||"",name_en:"",game:other.game,number:v.number||other.number,set_code:v.code||(other.game?other.set_code:""),ocr_words:[...new Set((nt+" "+texts.join(" ")).split(/[^A-Za-zÀ-ÿ'-]+/).filter(x=>x.length>=4))].slice(0,80)};
+  if(other.game&&other.game!=="Pokemon"){j.number=other.number;j.set_code=other.set_code}
+  j.printed_code=[j.set_code,j.number].filter(Boolean).join(" ");
+  j.name_guess=(nt.split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' -]/g," ").replace(/\s+/g," ").trim()).filter(x=>/[A-Za-z]{4,}/.test(x)).sort((a,b)=>b.replace(/[^A-Za-z]/g,"").length-a.replace(/[^A-Za-z]/g,"").length)[0]||"").replace(/\b(BASE|BASIC|PS|HP)\b/gi,"").replace(/\s+/g," ").trim().slice(0,60);
   if(!j.number&&!j.name_guess)throw new Error("noread");
   return j;
 }
+
 /* ---- Mirino fotocamera (solo sito esterno) ---- */
 let CAMSTREAM=null,CAMN=0;
 async function openCam(){
@@ -582,6 +617,8 @@ async function matchScan(j){
   const nameToks=norm(j.name_en||"").split(" ").filter(Boolean);
   const ocrW=(j.ocr_words||[]).map(norm).filter(w=>w.length>=4);
   const numToks=norm(num).split(" ").filter(Boolean),numAlt=numToks.map(t=>t.replace(/^0+(?=\d)/,""));
+  const numPh=[];if(numToks.length===2){for(const a of new Set([numToks[0],numAlt[0]]))for(const b2 of new Set([numToks[1],numAlt[1]]))numPh.push(" "+a+" "+b2+" ")}else if(numToks.length)numPh.push(" "+numToks.join(" ")+" "," "+numAlt.join(" ")+" ");
+  const numHit=w=>numPh.some(p=>w.includes(p));
   const codeT=norm(code),setToks=norm(sname).split(" ").filter(t=>t.length>2);
   const scored=[];
   for(let i=0;i<c.idx.length;i++){
@@ -590,12 +627,12 @@ async function matchScan(j){
     const w=" "+s+" ";let sc=0;
     if(!nameToks.length){
       if(!numToks.length)continue;
-      if(!(numToks.every(t=>w.includes(" "+t+" "))||numAlt.every(t=>w.includes(" "+t+" "))))continue;
+      if(!numHit(w))continue;
       if(codeT&&!w.includes(" "+codeT+" ")&&numToks.length<2)continue;
       for(const o of ocrW)if((" "+nm+" ").includes(" "+o))sc+=2;
     }
     if(nm.startsWith(nameToks.join(" ")))sc+=2;
-    if(numToks.length){if(numToks.every(t=>w.includes(" "+t+" ")))sc+=6;else if(numAlt.every(t=>w.includes(" "+t+" ")))sc+=5;else if(numToks[0]&&w.includes(" "+numAlt[0]+" "))sc+=3}
+    if(numToks.length){if(numHit(w))sc+=6;else if(numToks.length===1&&w.includes(" "+numAlt[0]+" "))sc+=3}
     if(codeT&&w.includes(" "+codeT+" "))sc+=4;
     for(const t of setToks)if(s.includes(t))sc+=1;
     scored.push([sc,i]);
@@ -609,7 +646,7 @@ async function matchScan(j){
   scored.sort((a,b)=>b[0]-a[0]||(c.p[b[1]][3]||0)-(c.p[a[1]][3]||0));
   if(!scored.length)return out;
   const best=scored[0],same=scored.filter(x=>x[0]===best[0]).length;
-  const mk=i=>{const it=c.p[i];return{game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,i}};
+  const mk=i=>{const it=c.p[i];return{game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",i}};
   if(best[0]>=5&&same===1)out.sel=mk(best[1]);
   out.cands=scored.slice(0,12).map(x=>x[1]);
   return out;
@@ -657,7 +694,7 @@ function nextQ(){
 
 function calc(){
   links();
-  if(SEL)$("selHint").innerHTML='<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend Cardmarket (tutte le lingue): <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
+  if(SEL)$("selHint").innerHTML=(!window.claude&&SEL.img?'<img src="https://assets.tcgdex.net/'+SEL.img+'/low.webp" alt="" style="width:90px;border-radius:6px;display:block;margin:6px 0" onerror="this.remove()">':'')+'<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend Cardmarket (tutte le lingue): <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
   if(MODE==="price"){calcPrice();return}
   const cond=+$("cond").value, qty=Math.max(1,parseInt($("qty").value)||1);
   const cm=num($("cm").value), ebList=nums($("eb").value);
