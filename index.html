@@ -264,9 +264,16 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 21:55</div>
+    <div class="hint">Versione app: 13/11 22:15</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
+  </div>
+  <div class="box">
+    <h2>CardTrader</h2>
+    <label>Token API CardTrader</label>
+    <input id="sCtTok" type="password" autocomplete="off" placeholder="incolla il token del tuo profilo CardTrader">
+    <div class="hint">Resta salvato solo su questo telefono. Serve per leggere dal vivo il minimo CardTrader Zero per lingua e condizione.</div>
+    <div class="hint" id="ctTokMsg"></div>
   </div>
   <div class="box">
     <h2>Riconoscimento foto</h2>
@@ -384,7 +391,7 @@ function links(){
   const ctq=(SEL?SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,""):n).replace(/\s+/g," ").trim();
   const cte=SEL&&CTD[SEL.game]&&CTD[SEL.game].p[String(SEL.id)];const ctb=cte?cte[0]:(SEL&&SEL.ct);
   const ctq2=ctq.replace(/\(.*?\)/g,"").replace(/\s+/g," ").trim();
-  $("ctLink").href=`https://www.cardtrader.com/en/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq2)}`;
+  $("ctLink").href=SEL&&SEL.ctbp?`https://www.cardtrader.com/en/cards/${SEL.ctbp}`:`https://www.cardtrader.com/en/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq2)}`;
   if(SEL){const num=(SEL.name.match(/(\S+\/\S+)$/)||[])[1]||"";base=SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,"")+(num?" "+num:"")}
   const gr=$("grader").value,gv=$("grade").value.trim();
   const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")+(gr?" "+gr+(gv?" "+gv:""):"")).trim();
@@ -905,17 +912,30 @@ function nextQ(){
 
 let CM_AUTO=null,CT_AUTO=null;const CTD={};
 const CTLANG={ITA:"it",ENG:"en",JAP:"jp",FR:"fr",DE:"de",ESP:"es",POR:"pt"};
-async function getCt(g){if(CTD[g]!==undefined)return CTD[g];CTD[g]=null;try{const r=await fetch(`data/ct_${g}.json`);if(r.ok)CTD[g]=await r.json()}catch(e){}return CTD[g]}
-function ctEntry(){if(!SEL)return null;const d=CTD[SEL.game];if(d===undefined){getCt(SEL.game).then(()=>calc());return null}return d&&d.p[String(SEL.id)]||null}
-function prefillCT(){
-  const e=ctEntry();const lk=$("lang").selectedOptions[0].dataset.k,lg=CTLANG[lk];const cond=+$("cond").value;
-  const key=SEL?SEL.game+":"+SEL.id+":"+lg+":"+(cond<=2?"nm":"any"):null;
-  let v=null;if(e&&lg&&e[1][lg]){const m=e[1][lg];v=cond<=2?m[0]:(m[1]!=null?m[1]:m[0])}
-  if(v==null){if(CT_AUTO&&$("ctp").value===CT_AUTO.v)$("ctp").value="";CT_AUTO=null;$("ctEst").textContent=SEL&&e?"Nessuna copia CT Zero in questa lingua"+(cond<=2?" in Near Mint":"")+" (ieri notte).":"";return}
-  if(CT_AUTO&&CT_AUTO.key===key)return;
-  if($("ctp").value&&!(CT_AUTO&&$("ctp").value===CT_AUTO.v))return;
-  const sv=String(v).replace(".",",");$("ctp").value=sv;CT_AUTO={key,v:sv};
-  $("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+$("lang").selectedOptions[0].text+(cond<=2?", Near Mint":"")+" (aggiornato ogni notte).";
+const CTGAME={Pokemon:5,OnePiece:15,DragonBallSuper:9,Magic:1,YuGiOh:4,Lorcana:18};
+const CTMEM={exps:null,bp:{},mk:{}};
+function ctStore(k,v){try{if(v===undefined){const x=localStorage.getItem("ct_"+k);return x?JSON.parse(x):null}localStorage.setItem("ct_"+k,JSON.stringify(v))}catch(e){return null}}
+async function ctApi(path){const r=await fetch("https://api.cardtrader.com/api/v2"+path,{headers:{Authorization:"Bearer "+S.ctTok}});if(r.status===401||r.status===403)throw new Error("token");if(!r.ok)throw new Error("http "+r.status);return r.json()}
+async function ctBlueprintFor(sel){
+  const k=sel.game+":"+sel.id;if(CTMEM.bp[k]!==undefined)return CTMEM.bp[k];
+  const cached=ctStore("bp_"+k);if(cached!==null){CTMEM.bp[k]=cached;return cached}
+  if(!CTMEM.exps){CTMEM.exps=ctStore("exps");if(!CTMEM.exps){CTMEM.exps=await ctApi("/expansions");ctStore("exps",CTMEM.exps)}}
+  const gid=CTGAME[sel.game];const exps=CTMEM.exps.filter(e=>e.game_id===gid);
+  const expName=String(sel.exp||"").split(" · ");const code=(expName[1]||"").toLowerCase(),nm=expName[0]||"";
+  const nt=tri(nm);const ranked=exps.map(e=>[ (code&&String(e.code||"").toLowerCase()===code?2:0)+triSim(nt,tri(e.name||e.name_en||"")),e]).sort((a,b)=>b[0]-a[0]).slice(0,4);
+  for(const [,e] of ranked){
+    let bps=ctStore("exp_"+e.id);if(!bps){const all=await ctApi("/blueprints/export?expansion_id="+e.id);bps=all.filter(b=>(b.card_market_ids||[]).length).map(b=>[b.id,b.card_market_ids]);ctStore("exp_"+e.id,bps)}
+    const hit=bps.find(b=>b[1].includes(sel.id));if(hit){CTMEM.bp[k]=hit[0];ctStore("bp_"+k,hit[0]);return hit[0]}
+  }
+  CTMEM.bp[k]=0;return 0;
+}
+async function ctMinFor(sel,lg,nmOnly){
+  const bp=await ctBlueprintFor(sel);if(!bp)return {bp:0};
+  const k=bp+":"+lg;let items=CTMEM.mk[k];
+  if(!items){const r=await ctApi(`/marketplace/products?blueprint_id=${bp}&language=${lg}`);items=(r[bp]||r[String(bp)]||[]);CTMEM.mk[k]=items}
+  let best=null;for(const p of items){if(!p.can_sell_via_hub)continue;const ph=p.properties_hash||{};const c=String(ph.condition||"").toLowerCase();if(nmOnly&&!(c==="mint"||c==="near mint"))continue;
+    const eur=p.price&&p.price.cents!=null?p.price.cents/100:(p.price_cents!=null?p.price_cents/100:null);if(eur!=null&&(best==null||eur<best))best=eur}
+  return {bp,min:best};
 }
 function prefillLow(){
   const key=SEL?SEL.game+":"+SEL.id:null;
@@ -924,6 +944,21 @@ function prefillLow(){
   if($("cm").value&&!(CM_AUTO&&$("cm").value===CM_AUTO.v))return;
   const v=String(SEL.low).replace(".",",");$("cm").value=v;CM_AUTO={key,v};
   $("cmEst").innerHTML="↳ stima automatica: minimo Cardmarket di <b>tutte le lingue e condizioni</b> (aggiornato ogni notte). Controlla su Cardmarket e correggi se serve.";
+}
+let CT_REQ=0;
+function prefillCT(){
+  if(!SEL||!S.ctTok||window.claude){if(!S.ctTok&&SEL)$("ctEst").textContent="Inserisci il token CardTrader in ⚙︎ per il prezzo automatico.";return}
+  const lg=CTLANG[$("lang").selectedOptions[0].dataset.k];const cond=+$("cond").value;const nmOnly=cond<=2;
+  const key=SEL.game+":"+SEL.id+":"+lg+":"+(nmOnly?"nm":"any");
+  if(CT_AUTO&&CT_AUTO.key===key)return;
+  if($("ctp").value&&!(CT_AUTO&&$("ctp").value===CT_AUTO.v))return;
+  if(!lg){$("ctEst").textContent="Lingua non disponibile su CardTrader.";return}
+  const my=++CT_REQ;const sel=SEL;CT_AUTO={key,v:$("ctp").value};$("ctEst").textContent="Cerco il minimo CardTrader Zero…";
+  ctMinFor(sel,lg,nmOnly).then(r=>{if(my!==CT_REQ||SEL!==sel)return;
+    if(r.bp)SEL.ctbp=r.bp;
+    if(r.min==null){$("ctEst").textContent=r.bp?"Nessuna copia CT Zero in "+$("lang").selectedOptions[0].text+(nmOnly?" Near Mint":"")+" tra le più economiche.":"Carta non trovata su CardTrader.";if(CT_AUTO&&$("ctp").value===CT_AUTO.v){$("ctp").value="";}CT_AUTO={key,v:""};links();return}
+    const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+$("lang").selectedOptions[0].text+(nmOnly?", Near Mint":"")+" (adesso).";calc();
+  }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido: controllalo in ⚙︎.":(e instanceof TypeError?"Il browser blocca la richiesta a CardTrader: serve il ponte Cloudflare (lo prepariamo).":"CardTrader non risponde, riprova.")});
 }
 function calc(){
   links();prefillLow();prefillCT();
@@ -968,12 +1003,14 @@ function renderLot(){
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function renderSet(){
+  $("sCtTok").value=S.ctTok||"";
   $("sScan").value=S.scan||"auto";
   $("sMk").value=S.markup;$("sPrule").value=S.prule;
   $("sRule").value=S.rule;$("sPct").value=S.pct;$("sRound").value=S.round;$("sBulkT").value=S.bulkT;$("sBulkP").value=S.bulkP;$("sLangKw").checked=S.langKw;$("sEbay").value=S.ebay;
   $("coefs").innerHTML=CONDS.slice(1).map((c,i)=>`<div><label>${c}</label><input type="number" inputmode="decimal" data-c="${i+1}" value="${S.coef[i+1]}"></div>`).join("");
 }
 function saveSet(){
+  S.ctTok=$("sCtTok").value.trim();
   S.scan=$("sScan").value;
   const mk=num($("sMk").value);S.markup=isFinite(mk)?mk:10;S.prule=$("sPrule").value;
   S.rule=$("sRule").value;S.pct=num($("sPct").value)||0;S.round=$("sRound").value;S.bulkT=num($("sBulkT").value)||0;S.bulkP=num($("sBulkP").value)||0;S.langKw=$("sLangKw").checked;S.ebay=$("sEbay").value;
