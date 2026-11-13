@@ -62,8 +62,8 @@ jobs:
           python tools/fingerprints.py data /tmp/fpcache
           if [ ! -f /tmp/fpcache/ct_Pokemon.json ]; then for G in Pokemon OnePiece DragonBallSuper Magic YuGiOh Lorcana; do curl -fsSL -o /tmp/fpcache/ct_$G.json "https://alessiocestra93.github.io/collectio-card-valutate/data/ct_$G.json" || rm -f /tmp/fpcache/ct_$G.json; done; fi
           # Prezzi CardTrader: letti solo nell'aggiornamento notturno o manuale (richiede ~1 ora); ai push si riusano gli ultimi
-          if [ "${{ github.event_name }}" != "push" ] || [ ! -f /tmp/fpcache/ct_Pokemon.json ]; then
-            CARDTRADER_TOKEN="${{ secrets.CARDTRADER_TOKEN }}" timeout 110m python tools/cardtrader.py data && cp data/ct_*.json /tmp/fpcache/ || echo "CardTrader non aggiornato"
+          if [ "${{ github.event_name }}" != "push" ]; then
+            CARDTRADER_TOKEN="${{ secrets.CARDTRADER_TOKEN }}" timeout 100m python tools/cardtrader.py data && cp data/ct_*.json /tmp/fpcache/ || echo "CardTrader non aggiornato"
           fi
           cp /tmp/fpcache/ct_*.json data/ 2>/dev/null || true
           cd /tmp/fpcache && git add -A && (git -c user.name=bot -c user.email=bot@example.com commit -qm "cache impronte" || true)
