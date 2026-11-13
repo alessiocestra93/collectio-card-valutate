@@ -264,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 21:45</div>
+    <div class="hint">Versione app: 13/11 21:50</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -921,15 +921,16 @@ function ctStore(k,v){try{if(v===undefined){const x=localStorage.getItem("ct_"+k
 const CT_PROXY_DEFAULT="https://collectio-ct.alessiocestra93.workers.dev";
 const ctProxy=()=>(S.ctProxy||CT_PROXY_DEFAULT).replace(/\/+$/,"");
 async function ctApi(path){const px=ctProxy();const r=px?await fetch(px+path):await fetch("https://api.cardtrader.com/api/v2"+path,{headers:{Authorization:"Bearer "+S.ctTok}});if(r.status===401||r.status===403)throw new Error("token");if(!r.ok)throw new Error("http "+r.status);return r.json()}
+const ctArr=x=>Array.isArray(x)?x:(x&&Array.isArray(x.array)?x.array:(x&&Array.isArray(x.data)?x.data:[]));
 async function ctBlueprintFor(sel){
   const k=sel.game+":"+sel.id;if(CTMEM.bp[k]!==undefined)return CTMEM.bp[k];
   const cached=ctStore("bp_"+k);if(cached!==null){CTMEM.bp[k]=cached;return cached}
-  if(!CTMEM.exps){CTMEM.exps=ctStore("exps");if(!CTMEM.exps){CTMEM.exps=await ctApi("/expansions");ctStore("exps",CTMEM.exps)}}
+  if(!CTMEM.exps){let x=ctStore("exps2");if(!Array.isArray(x)){x=ctArr(await ctApi("/expansions")).map(e=>({id:e.id,game_id:e.game_id,code:e.code,name:e.name}));ctStore("exps2",x)}CTMEM.exps=x}
   const gid=CTGAME[sel.game];const exps=CTMEM.exps.filter(e=>e.game_id===gid);
   const expName=String(sel.exp||"").split(" · ");const code=(expName[1]||"").toLowerCase(),nm=expName[0]||"";
   const nt=tri(nm);const ranked=exps.map(e=>[ (code&&String(e.code||"").toLowerCase()===code?2:0)+triSim(nt,tri(e.name||e.name_en||"")),e]).sort((a,b)=>b[0]-a[0]).slice(0,4);
   for(const [,e] of ranked){
-    let bps=ctStore("exp_"+e.id);if(!bps){const all=await ctApi("/blueprints/export?expansion_id="+e.id);bps=all.filter(b=>(b.card_market_ids||[]).length).map(b=>[b.id,b.card_market_ids]);ctStore("exp_"+e.id,bps)}
+    let bps=ctStore("exp_"+e.id);if(!bps){const all=ctArr(await ctApi("/blueprints/export?expansion_id="+e.id));bps=all.filter(b=>(b.card_market_ids||[]).length).map(b=>[b.id,b.card_market_ids]);ctStore("exp_"+e.id,bps)}
     const hit=bps.find(b=>b[1].includes(sel.id));if(hit){CTMEM.bp[k]=hit[0];ctStore("bp_"+k,hit[0]);return hit[0]}
   }
   CTMEM.bp[k]=0;return 0;
@@ -937,7 +938,7 @@ async function ctBlueprintFor(sel){
 async function ctMinFor(sel,lg,nmOnly){
   const bp=await ctBlueprintFor(sel);if(!bp)return {bp:0};
   const k=bp+":"+lg;let items=CTMEM.mk[k];
-  if(!items){const r=await ctApi(`/marketplace/products?blueprint_id=${bp}&language=${lg}`);items=(r[bp]||r[String(bp)]||[]);CTMEM.mk[k]=items}
+  if(!items){const r=await ctApi(`/marketplace/products?blueprint_id=${bp}&language=${lg}`);items=Array.isArray(r)?r:(r[bp]||r[String(bp)]||ctArr(r));CTMEM.mk[k]=items}
   let best=null;for(const p of items){if(!p.can_sell_via_hub)continue;const ph=p.properties_hash||{};const c=String(ph.condition||"").toLowerCase();if(nmOnly&&!(c==="mint"||c==="near mint"))continue;
     const eur=p.price&&p.price.cents!=null?p.price.cents/100:(p.price_cents!=null?p.price_cents/100:null);if(eur!=null&&(best==null||eur<best))best=eur}
   return {bp,min:best};
@@ -964,7 +965,7 @@ function prefillCT(){
     if(r.bp)SEL.ctbp=r.bp;
     if(r.min==null){$("ctEst").textContent=r.bp?"Nessuna copia CT Zero in "+$("lang").selectedOptions[0].text+(nmOnly?" Near Mint":"")+" tra le più economiche.":"Carta non trovata su CardTrader.";if(CT_AUTO&&$("ctp").value===CT_AUTO.v){$("ctp").value="";}CT_AUTO={key,v:""};links();return}
     const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+$("lang").selectedOptions[0].text+(nmOnly?", Near Mint":"")+" (adesso).";calc();
-  }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido: controllalo in ⚙︎.":(e instanceof TypeError?"Il browser blocca la richiesta a CardTrader: serve il ponte Cloudflare (indirizzo in ⚙︎).":"CardTrader non risponde, riprova.")});
+  }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido: controllalo in ⚙︎.":(e.message==="Failed to fetch"||e.message==="Load failed"?"Non riesco a collegarmi a CardTrader: controlla la connessione e riprova.":"Errore CardTrader ("+e.message+"): mandami uno screenshot.")});
 }
 function calc(){
   links();prefillLow();prefillCT();
