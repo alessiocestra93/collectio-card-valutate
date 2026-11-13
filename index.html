@@ -171,7 +171,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>2 · Controlla i prezzi</h2>
     <div class="row">
       <a class="btn soft" id="cmLink" target="_blank" rel="noopener">Cardmarket ↗</a>
-      <a class="btn soft onlyPrice" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
+      <a class="btn soft" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
       <a class="btn soft" id="ebLink" target="_blank" rel="noopener">eBay venduti ↗</a>
     </div>
     <div class="hint onlyPrice">Cardmarket si apre con lingua, condizione e solo venditori professionali.</div>
@@ -182,8 +182,9 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <label><span class="onlyVal">Minimo Cardmarket (€)</span><span class="onlyPrice">Minimo Cardmarket – venditori professionali (€)</span></label>
     <input id="cm" inputmode="decimal" placeholder="es. 12,50">
     <div class="hint" id="cmEst"></div>
-    <div class="onlyPrice"><label>Minimo CardTrader Zero (€)</label>
-    <input id="ctp" inputmode="decimal" placeholder="es. 11,90"></div>
+    <div><label>Minimo CardTrader Zero (€)</label>
+    <input id="ctp" inputmode="decimal" placeholder="es. 11,90">
+    <div class="hint" id="ctEst"></div></div>
     <label>Ultimi venduti eBay (€) – anche più prezzi</label>
     <input id="eb" inputmode="decimal" placeholder="es. 14 15,5 13,9">
     <div class="hint">Separa i prezzi con uno spazio: l'app usa la mediana.</div>
@@ -257,7 +258,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 19:00</div>
+    <div class="hint">Versione app: 13/11 19:20</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -286,8 +287,8 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Calcolo del valore</h2>
     <label>Valore di mercato =</label>
     <select id="sRule">
-      <option value="min">Il più basso tra Cardmarket ed eBay</option>
-      <option value="avg">Media tra Cardmarket ed eBay</option>
+      <option value="min">Il più basso tra Cardmarket, CardTrader ed eBay</option>
+      <option value="avg">Media dei prezzi inseriti</option>
       <option value="cm">Solo Cardmarket</option>
       <option value="eb">Solo eBay</option>
     </select>
@@ -375,7 +376,8 @@ function links(){
   let base=n;
   const CTG={Pokemon:"pokemon",OnePiece:"one-piece",DragonBallSuper:"dragon-ball-super",Magic:"magic",YuGiOh:"yu-gi-oh",Lorcana:"lorcana"};
   const ctq=(SEL?SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,""):n).replace(/\s+/g," ").trim();
-  $("ctLink").href=SEL&&SEL.ct?`https://www.cardtrader.com/it-IT/cards/${SEL.ct}`:`https://www.cardtrader.com/it-IT/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq)}`;
+  const cte=SEL&&CTD[SEL.game]&&CTD[SEL.game].p[String(SEL.id)];const ctb=cte?cte[0]:(SEL&&SEL.ct);
+  $("ctLink").href=ctb?`https://www.cardtrader.com/it-IT/cards/${ctb}`:`https://www.cardtrader.com/it-IT/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq)}`;
   if(SEL){const num=(SEL.name.match(/(\S+\/\S+)$/)||[])[1]||"";base=SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,"")+(num?" "+num:"")}
   const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")).trim();
   $("ebLink").href=`https://www.${S.ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
@@ -810,7 +812,20 @@ function nextQ(){
   if(nx)loadQ(nx);else renderQ();
 }
 
-let CM_AUTO=null;
+let CM_AUTO=null,CT_AUTO=null;const CTD={};
+const CTLANG={ITA:"it",ENG:"en",JAP:"jp",FR:"fr",DE:"de",ESP:"es",POR:"pt"};
+async function getCt(g){if(CTD[g]!==undefined)return CTD[g];CTD[g]=null;try{const r=await fetch(`data/ct_${g}.json`);if(r.ok)CTD[g]=await r.json()}catch(e){}return CTD[g]}
+function ctEntry(){if(!SEL)return null;const d=CTD[SEL.game];if(d===undefined){getCt(SEL.game).then(()=>calc());return null}return d&&d.p[String(SEL.id)]||null}
+function prefillCT(){
+  const e=ctEntry();const lk=$("lang").selectedOptions[0].dataset.k,lg=CTLANG[lk];const cond=+$("cond").value;
+  const key=SEL?SEL.game+":"+SEL.id+":"+lg+":"+(cond<=2?"nm":"any"):null;
+  let v=null;if(e&&lg&&e[1][lg]){const m=e[1][lg];v=cond<=2?m[0]:(m[1]!=null?m[1]:m[0])}
+  if(v==null){if(CT_AUTO&&$("ctp").value===CT_AUTO.v)$("ctp").value="";CT_AUTO=null;$("ctEst").textContent=SEL&&e?"Nessuna copia CT Zero in questa lingua"+(cond<=2?" in Near Mint":"")+" (ieri notte).":"";return}
+  if(CT_AUTO&&CT_AUTO.key===key)return;
+  if($("ctp").value&&!(CT_AUTO&&$("ctp").value===CT_AUTO.v))return;
+  const sv=String(v).replace(".",",");$("ctp").value=sv;CT_AUTO={key,v:sv};
+  $("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+$("lang").selectedOptions[0].text+(cond<=2?", Near Mint":"")+" (aggiornato ogni notte).";
+}
 function prefillLow(){
   const key=SEL?SEL.game+":"+SEL.id:null;
   if(!SEL||!SEL.low){if(CM_AUTO&&$("cm").value===CM_AUTO.v){$("cm").value=""}CM_AUTO=null;$("cmEst").textContent="";return}
@@ -820,21 +835,21 @@ function prefillLow(){
   $("cmEst").innerHTML="↳ stima automatica: minimo Cardmarket di <b>tutte le lingue e condizioni</b> (aggiornato ogni notte). Controlla su Cardmarket e correggi se serve.";
 }
 function calc(){
-  links();prefillLow();
+  links();prefillLow();prefillCT();
   if(SEL)$("selHint").innerHTML=(!window.claude&&SEL.img?'<img src="https://assets.tcgdex.net/'+SEL.img+'/low.webp" alt="" style="width:90px;border-radius:6px;display:block;margin:6px 0" onerror="this.remove()">':'')+'<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend Cardmarket (tutte le lingue): <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
   if(MODE==="price"){calcPrice();return}
   const cond=+$("cond").value, qty=Math.max(1,parseInt($("qty").value)||1);
-  const cm=num($("cm").value), ebList=nums($("eb").value);
+  const cm=num($("cm").value), ebList=nums($("eb").value), ctv=num($("ctp").value);
   const ebMed=median(ebList), ebAdj=isFinite(ebMed)?ebMed*S.coef[cond]/100:NaN;
-  const hasC=isFinite(cm)&&cm>0, hasE=isFinite(ebAdj);
+  const hasC=isFinite(cm)&&cm>0, hasE=isFinite(ebAdj), hasT=isFinite(ctv)&&ctv>0;
+  const srcV=[];if(hasC)srcV.push(["Cardmarket",cm]);if(hasT)srcV.push(["CardTrader",ctv]);if(hasE)srcV.push(["eBay",ebAdj]);
   let val=NaN,how="";
-  if(hasC&&hasE){
-    if(S.rule==="min"){val=Math.min(cm,ebAdj);how=cm<=ebAdj?"Cardmarket (più basso)":"eBay (più basso)"}
-    else if(S.rule==="avg"){val=(cm+ebAdj)/2;how="media CM/eBay"}
-    else if(S.rule==="cm"){val=cm;how="solo Cardmarket"}
-    else {val=ebAdj;how="solo eBay"}
-  } else if(hasC){val=cm;how="solo Cardmarket (eBay vuoto)"}
-  else if(hasE){val=ebAdj;how="solo eBay (Cardmarket vuoto)"}
+  if(srcV.length){
+    if(S.rule==="cm"&&hasC){val=cm;how="solo Cardmarket"}
+    else if(S.rule==="eb"&&hasE){val=ebAdj;how="solo eBay"}
+    else if(S.rule==="avg"){val=srcV.reduce((a,x)=>a+x[1],0)/srcV.length;how="media di "+srcV.map(x=>x[0]).join(", ")}
+    else{const m=srcV.reduce((a,x)=>x[1]<a[1]?x:a);val=m[1];how=m[0]+(srcV.length>1?" (più basso)":"")}
+  }
   const st=parseFloat(S.round)||0.1;
   if(!isFinite(val)){cur=null;$("rOffer").textContent=$("rVal").textContent=$("rSell").textContent="–";$("rDet").innerHTML="Inserisci almeno un prezzo.";return}
   const bulk=val<S.bulkT;
@@ -879,12 +894,13 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
   ["val","lot","set"].forEach(v=>$("v-"+v).classList.toggle("hide",v!==b.dataset.v));
   window.scrollTo(0,0);
 });
+$("ctp").addEventListener("input",()=>{if(CT_AUTO&&$("ctp").value!==CT_AUTO.v){CT_AUTO=null;$("ctEst").textContent=""}});
 $("cm").addEventListener("input",()=>{if(CM_AUTO&&$("cm").value!==CM_AUTO.v){CM_AUTO=null;$("cmEst").textContent=""}});
 ["game","lang","cond","qty","cm","eb","pc","cmUrl","ctp","mk"].forEach(id=>{$(id).addEventListener("input",calc);$(id).addEventListener("change",calc)});
 $("v-set").addEventListener("input",saveSet);$("v-set").addEventListener("change",saveSet);
 $("add").onclick=()=>{calc();if(!cur){toast("Inserisci almeno un prezzo");return}LOT.push(cur);renderLot();toast("Aggiunta al lotto ✓");if(QCUR!==null)nextQ();else clearCard()};
 document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const v=num($("pc").value);$("pc").value=Math.max(0,(isFinite(v)?v:S.pct)+(+b.dataset.d));calc()});
-function clearCard(keep){CM_AUTO=null;$("cmEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
+function clearCard(keep){CM_AUTO=null;CT_AUTO=null;$("cmEst").textContent="";$("ctEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
 $("clear").onclick=()=>clearCard();
 $("lotList").onclick=e=>{const k=e.target.dataset.k;if(k!==undefined){LOT.splice(+k,1);renderLot()}};
 $("empty").onclick=()=>{if(LOT.length)$("confirmBox").classList.remove("hide")};
