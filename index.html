@@ -264,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 21:45</div>
+    <div class="hint">Versione app: 13/11 21:55</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -383,7 +383,8 @@ function links(){
   const CTG={Pokemon:"pokemon",OnePiece:"one-piece",DragonBallSuper:"dragon-ball-super",Magic:"magic",YuGiOh:"yu-gi-oh",Lorcana:"lorcana"};
   const ctq=(SEL?SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,""):n).replace(/\s+/g," ").trim();
   const cte=SEL&&CTD[SEL.game]&&CTD[SEL.game].p[String(SEL.id)];const ctb=cte?cte[0]:(SEL&&SEL.ct);
-  $("ctLink").href=ctb?`https://www.cardtrader.com/it-IT/cards/${ctb}`:`https://www.cardtrader.com/it-IT/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq)}`;
+  const ctq2=ctq.replace(/\(.*?\)/g,"").replace(/\s+/g," ").trim();
+  $("ctLink").href=`https://www.cardtrader.com/en/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq2)}`;
   if(SEL){const num=(SEL.name.match(/(\S+\/\S+)$/)||[])[1]||"";base=SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,"")+(num?" "+num:"")}
   const gr=$("grader").value,gv=$("grade").value.trim();
   const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")+(gr?" "+gr+(gv?" "+gv:""):"")).trim();
