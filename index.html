@@ -264,7 +264,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 21:50</div>
+    <div class="hint">Versione app: 13/11 21:55</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -923,6 +923,7 @@ const ctProxy=()=>(S.ctProxy||CT_PROXY_DEFAULT).replace(/\/+$/,"");
 async function ctApi(path){const px=ctProxy();const r=px?await fetch(px+path):await fetch("https://api.cardtrader.com/api/v2"+path,{headers:{Authorization:"Bearer "+S.ctTok}});if(r.status===401||r.status===403)throw new Error("token");if(!r.ok)throw new Error("http "+r.status);return r.json()}
 const ctArr=x=>Array.isArray(x)?x:(x&&Array.isArray(x.array)?x.array:(x&&Array.isArray(x.data)?x.data:[]));
 async function ctBlueprintFor(sel){
+  if(sel.ct)return +sel.ct;
   const k=sel.game+":"+sel.id;if(CTMEM.bp[k]!==undefined)return CTMEM.bp[k];
   const cached=ctStore("bp_"+k);if(cached!==null){CTMEM.bp[k]=cached;return cached}
   if(!CTMEM.exps){let x=ctStore("exps2");if(!Array.isArray(x)){x=ctArr(await ctApi("/expansions")).map(e=>({id:e.id,game_id:e.game_id,code:e.code,name:e.name}));ctStore("exps2",x)}CTMEM.exps=x}
