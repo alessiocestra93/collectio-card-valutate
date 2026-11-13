@@ -272,7 +272,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Catalogo incluso.</div>
     <div class="hint">Si aggiorna ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 23:05</div>
+    <div class="hint">Versione app: 13/11 23:20</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -483,8 +483,9 @@ let OCRW=null;
 function loadScript(u){return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=u;sc.onload=res;sc.onerror=()=>rej(new Error("ocrload"));document.head.appendChild(sc)})}
 const STANDALONE=!window.claude;
 function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))])}
+let WARMING=false;
 function ocrStatus(m){
-  if(!m||!m.status)return;const pc=Math.round((m.progress||0)*100);
+  if(!m||!m.status||(WARMING&&!QBUSY))return;const pc=Math.round((m.progress||0)*100);
   const lab=/recogniz/.test(m.status)?"Lettura del testo":/load|initializ/.test(m.status)?"Preparazione lettore (solo la prima volta)":null;
   if(lab)$("scanHint").textContent=`${lab}… ${pc}%`;
 }
@@ -493,7 +494,7 @@ async function ocrWorker(){
   OCRW=(async()=>{
     const local=STANDALONE;
     const base=local?new URL("vendor/",location.href).href:"https://cdn.jsdelivr.net/npm/";
-    $("scanHint").textContent="Preparazione lettore (solo la prima volta)…";
+    if(!WARMING||QBUSY)$("scanHint").textContent="Preparazione lettore…";
     if(!window.Tesseract){
       try{await loadScript(local?base+"tesseract.min.js":base+"tesseract.js@5/dist/tesseract.min.js")}
       catch(e){await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js")}
@@ -764,8 +765,14 @@ function parseLabel(t){
   j.name_guess=(lines[0]||"").replace(/\b(ALT|ART|HOLO|FA|SAR|SR|UR|SEC)\b.*$/i,"").trim();j.name_lines=lines;j.label=true;j.name_en=j.name_guess;
   return j;
 }
+function whiteFrac(src,R){const W=120,H=Math.max(8,Math.round(120*(src.height*(R[3]-R[2]))/(src.width*(R[1]-R[0])||1)));const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(src,src.width*R[0],src.height*R[2],src.width*(R[1]-R[0]),src.height*(R[3]-R[2]),0,0,W,H);const d=g.getImageData(0,0,W,H).data;let k=0;for(let i=0;i<W*H;i++){const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],mx=Math.max(r,gg,b),mn=Math.min(r,gg,b);if(mn>170&&mx-mn<40)k++}return k/(W*H)}
 async function ocrRead(img){
-  {const src=img._label||img;const y1=img._label?1:0.32;try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(src,0,1,0,y1,1400,"lum")),20000);const lj=parseLabel(r.data.text||"");if(lj&&(lj.grader||lj.name_guess||lj.number))return lj}catch(e){}}
+  {// etichetta delle gradate: solo la zona sopra la carta
+    let src=img,R=[0,1,0,0.32],W=1100;
+    if(img._label){src=img._label;R=[0,1,0,1]}
+    else{const b=findCardBox(img);if(b&&!b.rot){const top=Math.max(0,b.y-b.h*0.5);if(b.y-top<b.h*0.1)src=null;else R=[Math.max(0,b.x-b.w*0.1)/img.width,Math.min(img.width,b.x+b.w*1.1)/img.width,top/img.height,(b.y+b.h*0.04)/img.height]}}
+    if(src&&!img._label&&whiteFrac(src,R)<0.06)src=null;// niente etichetta bianca: non è una gradata
+    if(src)try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(src,R[0],R[1],R[2],R[3],W,"lum")),20000);const lj=parseLabel(r.data.text||"");if(lj&&(lj.grader||lj.name_guess||lj.number))return lj}catch(e){}}
   const j=await ocrRead0(img);
   if(!j.grader){try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(img,0,1,0,0.3,1400,"lum")),20000);const gd=detectGrade(r.data.text||"");if(gd){j.grader=gd.grader;j.grade=gd.grade}}catch(e){}}
   return j;
@@ -825,7 +832,7 @@ async function ocrReadCore(img){
   const nr=framed?[0,0.75,0,0.12]:[0,1,0,0.3];let nt="";
   for(const m of ["lum","raw"]){const r=await withTimeout(w.recognize(prepCanvas(img,nr[0],nr[1],nr[2],nr[3],1400,m)),30000);nt=r.data.text||"";if(/[A-Za-z]{4,}/.test(nt))break}
   let wl=detectLang(texts.join(" ")+" "+nt);let bodyDone=false;
-  if((!wl||!detectGame(texts.join(" ")+" "+nt))&&framed){bodyDone=true;try{await w.setParameters({tessedit_pageseg_mode:"6"});const rb=await withTimeout(w.recognize(prepCanvas(img,0,1,0.55,0.86,1300,"lum")),30000);texts.push(rb.data.text||"");wl=detectLang(texts.join(" ")+" "+nt)}catch(e){}}
+  if(!wl&&framed){bodyDone=true;try{await w.setParameters({tessedit_pageseg_mode:"6"});const rb=await withTimeout(w.recognize(prepCanvas(img,0,1,0.55,0.86,1300,"lum")),30000);texts.push(rb.data.text||"");wl=detectLang(texts.join(" ")+" "+nt)}catch(e){}}
   const allT=texts.join("\n")+"\n"+nt;
   let gameD=detectGame(allT)||other.game||"";
   if(!wl&&latinWordCount(allT)<10&&["Pokemon","OnePiece","DragonBallSuper",""].includes(gameD))wl="JAP";
@@ -842,6 +849,11 @@ async function ocrReadCore(img){
 /* ---- Mirino fotocamera (solo sito esterno) ---- */
 let CAMSTREAM=null,CAMN=0;
 function embWarm(){if(window.claude)return;embSession().catch(()=>{});embLoad("Pokemon")}
+// all'apertura prepara subito lettore e riconoscimento, così la prima foto è veloce
+if(!window.claude){
+  if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+  setTimeout(async()=>{WARMING=true;try{embWarm();await ocrWorker()}catch(e){}finally{WARMING=false}},800);
+}
 async function openCam(){embWarm();
   $("cam").classList.remove("hide");CAMN=0;$("camN").textContent="";
   $("camDone").textContent=MODE==="price"?"Annulla":"Fine";
