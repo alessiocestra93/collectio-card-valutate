@@ -1,0 +1,61 @@
+name: Aggiorna catalogo e pubblica
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 23 * * *"   # ogni notte (mezzanotte ora italiana in inverno)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scarica i cataloghi Cardmarket
+        run: |
+          mkdir -p /tmp/src
+          for N in 1 3 6 13 18 19; do
+            curl -fsSL -o /tmp/src/p$N.json  https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_$N.json
+            curl -fsSL -o /tmp/src/ns$N.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_$N.json
+            curl -fsSL -o /tmp/src/pg$N.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_$N.json
+          done
+      - name: Scarica i dati TCGdex
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/tcgdex/cards-database.git /tmp/tcgdex
+          cd /tmp/tcgdex && git sparse-checkout set data data-asia
+      - name: Costruisci i cataloghi
+        run: |
+          mkdir -p data
+          python tools/build.py /tmp/src /tmp/tcgdex data
+          python - <<'PY'
+          import json,sys
+          for g in ["Pokemon","OnePiece","DragonBallSuper","Magic","YuGiOh","Lorcana"]:
+              d=json.load(open(f"data/{g}.json"))
+              assert len(d["p"])>1000, g
+              print(g, len(d["p"]), d["d"])
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

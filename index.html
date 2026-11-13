@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="Collectio">
+<title>Collectio Card Valutate</title>
+<style>
+:root{color-scheme:dark;--bg:#121212;--card:#1c1c1c;--ink:#f3f3f3;--mute:#a9a9a9;--line:#2f2f2f;--acc:#ff7a00;--acc2:#2b1b0d;--accInk:#ff9a3d;--blk:#0a0a0a;--ok:#4cc38a;--warn:#ff7a00;--bad:#ff6b6b;--r:14px}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.35}
+header{position:sticky;top:0;z-index:5;background:var(--blk);color:#fff;padding:10px max(12px,env(safe-area-inset-left)) 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line)}
+.sep{color:var(--acc);font-size:18px;padding:0 1px;align-self:center}
+.tabs{flex-wrap:nowrap;align-items:center;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{white-space:nowrap;flex:0 0 auto}
+header h1{margin:0;display:flex;align-items:center;gap:8px;line-height:1}
+.logoTxt{display:flex;flex-direction:column;font-weight:800;letter-spacing:-.01em}.logoTxt b{font-size:16px;color:#fff}.logoTxt i{font-style:normal;font-size:10px;letter-spacing:.18em;color:var(--acc);margin-top:2px}
+.box{box-shadow:none}
+.box h2{color:var(--accInk)}
+body.mode-price .onlyVal{display:none!important}body:not(.mode-price) .onlyPrice{display:none!important}
+.tabs{display:flex;gap:5px}
+.tab{border:1px solid #3a3a3a;background:#1d1d1d;color:#fff;padding:7px 9px;border-radius:999px;font-size:14px;cursor:pointer}
+.tab.on{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#ffffff26;font-size:12px;margin-left:3px}
+main{max-width:600px;margin:0 auto;padding:12px max(12px,env(safe-area-inset-left)) 120px}
+.kpi .v{word-break:break-word}
+.tot>div{min-width:0}
+@media (max-width:540px){.logoTxt{display:none!important}}
+@media (max-width:420px){.tab{padding:7px 8px;font-size:13px}.kpi .v{font-size:20px}.kpi.big .v{font-size:26px}.box{padding:12px}}
+@media (max-width:340px){.row{flex-direction:column}.row>*,.row>a.btn{flex:0 0 auto}.res{grid-template-columns:1fr}}
+@media (min-width:760px){main{max-width:760px}}
+@media (min-width:1000px){
+  main{max-width:1180px;padding-left:24px;padding-right:24px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px;align-items:start}
+  .cols .b1{grid-column:1;grid-row:1}.cols .b2{grid-column:1;grid-row:2}
+  .cols .b3{grid-column:2;grid-row:1/span 2;position:sticky;top:70px}
+  .setcols{column-count:2;column-gap:16px}.setcols>*{break-inside:avoid}
+  #v-lot{max-width:760px;margin:0 auto}
+  .tot{padding-left:calc(50vw - 570px);padding-right:calc(50vw - 570px)}
+}
+.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.box h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0 4px}
+input,select{width:100%;font-size:16px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 0;min-width:0}
+.row>a.btn{flex:1 1 100px}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#111}
+.btn.soft{background:#fff;border-color:#fff;color:#111}.btn.soft:active{background:var(--acc);color:#111}
+.btn.sm{padding:8px 10px;font-size:13px;width:auto}
+.hint{font-size:12px;color:var(--mute);margin-top:4px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.kpi{background:var(--bg);border-radius:11px;padding:10px}
+.kpi .l{font-size:12px;color:var(--mute)}
+.kpi .v{font-size:24px;font-weight:700;margin-top:2px}
+.kpi.big{grid-column:1/-1;background:var(--acc2);border-left:5px solid var(--acc)}
+.kpi.big .v{color:var(--ink);font-size:30px}
+.detail{font-size:13px;color:var(--mute);margin-top:10px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--warn);color:#111;vertical-align:middle}
+.item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .t{flex:1;min-width:0}
+.item .n{font-weight:600;word-break:break-word}
+.item .m{font-size:12px;color:var(--mute)}
+.item .p{text-align:right;white-space:nowrap}
+.item .p b{display:block;color:var(--accInk)}
+.x{border:0;background:none;color:var(--bad);font-size:20px;cursor:pointer;padding:0 4px}
+.tot{position:fixed;left:0;right:0;bottom:0;background:var(--blk);color:#fff;border-top:3px solid var(--acc);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:center;z-index:6}
+.tot .l{font-size:12px;color:#bdbdbd}
+.tot .v{font-size:20px;font-weight:700}
+.tot .v.o{color:var(--acc)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+.hide{display:none}
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink)}
+.chk input{width:auto}
+.sug{position:absolute;left:0;right:0;top:100%;z-index:8;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:4px;max-height:300px;overflow:auto;box-shadow:0 8px 24px #000a}
+.sug div{padding:10px 11px;border-bottom:1px solid var(--line);cursor:pointer;font-size:15px}.sug div:last-child{border-bottom:0}.sug small{color:var(--mute);display:block;font-size:12px}
+.ok{color:var(--ok)}
+.sug .sr{display:flex;align-items:center;gap:8px}.sug .st{flex:1;min-width:0}.sug .eye{flex:0 0 auto;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-size:18px}
+.qi{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;margin-top:6px;cursor:pointer}.qi.on{border-color:var(--acc);background:var(--acc2)}.qi.done{opacity:.5}.qi img{width:42px;height:58px;object-fit:cover;border-radius:4px;flex:0 0 auto;background:var(--bg)}.qi .t{flex:1;min-width:0;font-size:14px}.qi .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qi .t small{color:var(--mute);font-size:12px}
+.empty{color:var(--mute);text-align:center;padding:18px 0;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1 aria-label="Collectio Card Valutate"><img src="assets/logo.png" alt="" width="44" height="44" style="display:block;margin:-4px 0"><span class="logoTxt"><b>Collectio</b><i>CARD VALUTATE</i></span></h1>
+  <div class="tabs">
+    <button class="tab" data-v="val" data-m="price">Prezzatore</button>
+    <span class="sep" aria-hidden="true">|</span>
+    <button class="tab on" data-v="val" data-m="val">Valuta</button>
+    <button class="tab" data-v="lot">Lotto<span class="badge" id="lotN">0</span></button>
+    <button class="tab" data-v="set">⚙︎</button>
+  </div>
+</header>
+
+<main>
+<!-- VALUTA -->
+<section id="v-val" class="cols">
+  <div class="box b1">
+    <h2>1 · Carta</h2>
+    <div class="row" id="scanBtn" style="margin-bottom:6px">
+      <div class="btn pri" style="position:relative;overflow:hidden">📷 Scatta foto<input id="scanCam" type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px"></div>
+      <div class="btn" style="position:relative;overflow:hidden">🖼 <span class="onlyVal">Dalla galleria (più foto)</span><span class="onlyPrice">Dalla galleria</span><input id="scanFile" type="file" accept="image/*" multiple style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px"></div>
+    </div>
+    <div class="hint" id="scanHint"></div>
+    <div id="qBox" class="hide onlyVal" style="margin:8px 0 4px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="hint" id="qHead"></span><button class="btn sm" id="qClear">Svuota coda</button></div>
+      <div id="qList"></div>
+    </div>
+    <div class="row">
+      <div><label>Gioco</label>
+        <select id="game">
+          <option value="Pokemon">Pokémon</option>
+          <option value="OnePiece">One Piece</option>
+          <option value="DragonBallSuper">Dragon Ball Super</option>
+          <option value="Magic">Magic</option>
+          <option value="YuGiOh">Yu-Gi-Oh!</option>
+          <option value="Lorcana">Lorcana</option>
+        </select></div>
+      <div><label>Lingua</label>
+        <select id="lang">
+          <option value="5" data-k="ITA">Italiano</option>
+          <option value="1" data-k="ENG">Inglese</option>
+          <option value="7" data-k="JAP">Giapponese</option>
+          <option value="2" data-k="FR">Francese</option>
+          <option value="3" data-k="DE">Tedesco</option>
+          <option value="4" data-k="ESP">Spagnolo</option>
+          <option value="8" data-k="POR">Portoghese</option>
+          <option value="10" data-k="KOR">Coreano</option>
+          <option value="6" data-k="CHN">Cinese</option>
+        </select></div>
+    </div>
+    <label>Nome carta (+ numero o codice set)</label>
+    <div style="position:relative">
+      <input id="name" placeholder="es. charizard 228 obf · nami op02" autocomplete="off">
+      <div id="sug" class="sug hide"></div>
+    </div>
+    <div class="hint" id="selHint"></div>
+    <div class="row">
+      <div><label>Condizione</label>
+        <select id="cond">
+          <option value="1">Mint</option>
+          <option value="2" selected>Near Mint</option>
+          <option value="3">Excellent</option>
+          <option value="4">Good</option>
+          <option value="5">Light Played</option>
+          <option value="6">Played</option>
+          <option value="7">Poor</option>
+        </select></div>
+      <div class="onlyVal"><label>Quantità</label><input id="qty" type="number" min="1" value="1" inputmode="numeric"></div>
+    </div>
+  </div>
+
+  <div class="box b2">
+    <h2>2 · Controlla i prezzi</h2>
+    <div class="row">
+      <a class="btn soft" id="cmLink" target="_blank" rel="noopener">Cardmarket ↗</a>
+      <a class="btn soft onlyPrice" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
+      <a class="btn soft" id="ebLink" target="_blank" rel="noopener">eBay venduti ↗</a>
+    </div>
+    <div class="hint onlyPrice">Cardmarket si apre con lingua, condizione e solo venditori professionali.</div>
+    <div class="hint" id="cmHint"></div>
+    <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Carta non nel catalogo? Incolla il suo link Cardmarket</summary>
+      <input id="cmUrl" inputmode="url" placeholder="link della pagina della carta" autocomplete="off" style="margin-top:6px">
+    </details>
+    <label><span class="onlyVal">Minimo Cardmarket (€)</span><span class="onlyPrice">Minimo Cardmarket – venditori professionali (€)</span></label>
+    <input id="cm" inputmode="decimal" placeholder="es. 12,50">
+    <div class="onlyPrice"><label>Minimo CardTrader Zero (€)</label>
+    <input id="ctp" inputmode="decimal" placeholder="es. 11,90"></div>
+    <label>Ultimi venduti eBay (€) – anche più prezzi</label>
+    <input id="eb" inputmode="decimal" placeholder="es. 14 15,5 13,9">
+    <div class="hint">Separa i prezzi con uno spazio: l'app usa la mediana.</div>
+  </div>
+
+  <div class="box b3">
+    <h2>3 · Risultato</h2>
+    <div class="onlyPrice">
+      <div class="row" style="align-items:flex-end;margin-bottom:10px">
+        <div><label>Ricarico (%)</label><input id="mk" type="number" inputmode="decimal"></div>
+        <div style="flex:0 0 auto;display:flex;gap:6px"><button class="btn sm" data-mk="-5">−5</button><button class="btn sm" data-mk="5">+5</button></div>
+      </div>
+      <div class="res">
+        <div class="kpi big"><div class="l">Prezzo di vendita (cad.)</div><div class="v" id="pSell">–</div></div>
+        <div class="kpi"><div class="l">Base di mercato</div><div class="v" id="pBase">–</div></div>
+        <div class="kpi"><div class="l">Ricarico</div><div class="v" id="pGain">–</div></div>
+      </div>
+      <div class="detail" id="pDet"></div>
+      <div style="margin-top:12px"><button class="btn" id="pclear">Nuova carta</button></div>
+    </div>
+    <div class="onlyVal">
+    <div class="row" style="align-items:flex-end;margin-bottom:10px">
+      <div><label>Offerta per questa carta (% del valore)</label><input id="pc" type="number" inputmode="decimal"></div>
+      <div style="flex:0 0 auto;display:flex;gap:6px"><button class="btn sm" data-d="-5">−5</button><button class="btn sm" data-d="5">+5</button></div>
+    </div>
+    <div class="res">
+      <div class="kpi big"><div class="l">Offerta d'acquisto (cad.)</div><div class="v" id="rOffer">–</div></div>
+      <div class="kpi"><div class="l">Valore di mercato</div><div class="v" id="rVal">–</div></div>
+      <div class="kpi"><div class="l">Prezzo vendita</div><div class="v" id="rSell">–</div></div>
+    </div>
+    <div class="detail" id="rDet"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="clear">Nuova carta</button>
+      <button class="btn pri" id="add">+ Aggiungi al lotto</button>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOTTO -->
+<section id="v-lot" class="hide">
+  <div class="box">
+    <h2>Percentuale per tutto il lotto</h2>
+    <div class="row" style="align-items:flex-end">
+      <div><label>Offerta (% del valore)</label><input id="lotPc" type="number" inputmode="decimal"></div>
+      <div style="flex:0 0 auto;display:flex;gap:6px"><button class="btn sm" data-ld="-5">−5</button><button class="btn sm" data-ld="5">+5</button></div>
+    </div>
+    <button class="btn pri" id="lotApply" style="margin-top:10px">Applica a tutte le carte</button>
+    <div class="hint">Sostituisce la percentuale di ogni carta del lotto. Le carte bulk restano al prezzo fisso.</div>
+  </div>
+  <div class="box">
+    <h2>Carte nel lotto</h2>
+    <div id="lotList"></div>
+  </div>
+  <div class="row">
+    <button class="btn" id="copy">Copia riepilogo</button>
+    <button class="btn" id="empty" style="color:var(--bad)">Svuota lotto</button>
+  </div>
+  <div class="box hide" id="confirmBox" style="margin-top:12px">
+    <div>Vuoi svuotare tutto il lotto?</div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="noEmpty">Annulla</button>
+      <button class="btn pri" id="yesEmpty" style="background:var(--bad);border-color:var(--bad)">Svuota</button>
+    </div>
+  </div>
+</section>
+
+<!-- IMPOSTAZIONI -->
+<section id="v-set" class="hide setcols">
+  <div class="box">
+    <h2>Catalogo carte</h2>
+    <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
+    <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
+    <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
+    <div class="hint" id="catNowMsg"></div>
+  </div>
+  <div class="box">
+    <h2>Riconoscimento foto</h2>
+    <select id="sScan">
+      <option value="auto">Claude (se disponibile), altrimenti lettura gratuita</option>
+      <option value="free">Sempre lettura gratuita sul telefono</option>
+      <option value="claude">Sempre Claude</option>
+    </select>
+    <div class="hint">La lettura gratuita legge il codice stampato in basso (es. OBF 228/197, OP02-036) direttamente sul telefono, senza consumare i limiti di Claude. Gioco e lingua: controlla che siano impostati giusti.</div>
+  </div>
+  <div class="box">
+    <h2>Prezzatore</h2>
+    <label>Prezzo base =</label>
+    <select id="sPrule">
+      <option value="min">Il più basso tra Cardmarket, CardTrader ed eBay</option>
+      <option value="avg">Media dei prezzi inseriti</option>
+      <option value="cm">Solo Cardmarket</option>
+    </select>
+    <label>Ricarico predefinito (%)</label>
+    <input id="sMk" type="number" inputmode="decimal">
+    <div class="hint">Il prezzo di vendita è arrotondato per eccesso secondo l'arrotondamento qui sotto.</div>
+  </div>
+  <div class="box">
+    <h2>Calcolo del valore</h2>
+    <label>Valore di mercato =</label>
+    <select id="sRule">
+      <option value="min">Il più basso tra Cardmarket ed eBay</option>
+      <option value="avg">Media tra Cardmarket ed eBay</option>
+      <option value="cm">Solo Cardmarket</option>
+      <option value="eb">Solo eBay</option>
+    </select>
+    <label>Offerta d'acquisto (% del valore)</label>
+    <input id="sPct" type="number" inputmode="decimal">
+    <label>Arrotondamento</label>
+    <select id="sRound">
+      <option value="0.01">0,01 €</option>
+      <option value="0.05">0,05 €</option>
+      <option value="0.1">0,10 €</option>
+      <option value="0.5">0,50 €</option>
+      <option value="1">1 €</option>
+    </select>
+    <div class="hint">L'offerta viene arrotondata per difetto, il prezzo di vendita per eccesso.</div>
+  </div>
+  <div class="box">
+    <h2>Bulk</h2>
+    <div class="row">
+      <div><label>Sotto il valore di (€)</label><input id="sBulkT" type="number" inputmode="decimal"></div>
+      <div><label>Offri a carta (€)</label><input id="sBulkP" type="number" inputmode="decimal"></div>
+    </div>
+  </div>
+  <div class="box">
+    <h2>Condizione → correzione prezzo eBay (%)</h2>
+    <div class="hint" style="margin-bottom:6px">Su eBay di solito non si filtra per condizione, quindi il prezzo eBay viene corretto con queste percentuali. Il minimo Cardmarket no, perché è già filtrato.</div>
+    <div class="grid2" id="coefs"></div>
+  </div>
+  <div class="box">
+    <h2>Ricerca eBay</h2>
+    <label class="chk"><input type="checkbox" id="sLangKw"> Aggiungi la lingua alla ricerca (es. "ITA")</label>
+    <label>Sito eBay</label>
+    <select id="sEbay"><option value="ebay.it">ebay.it</option><option value="ebay.de">ebay.de</option><option value="ebay.com">ebay.com</option><option value="ebay.co.uk">ebay.co.uk</option></select>
+  </div>
+  <button class="btn" id="reset">Ripristina impostazioni predefinite</button>
+</section>
+</main>
+
+<div class="tot onlyVal">
+  <div><div class="l">Lotto · valore</div><div class="v" id="tVal">0,00 €</div></div>
+  <div style="text-align:right"><div class="l">Offerta totale</div><div class="v o" id="tOff">0,00 €</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const CONDS=["","Mint","Near Mint","Excellent","Good","Light Played","Played","Poor"];
+const CABBR=["","MT","NM","EX","GD","LP","PL","PO"];
+const DEF={scan:"free",markup:10,prule:"min",rule:"min",pct:70,round:"0.1",bulkT:1,bulkP:0.05,langKw:true,ebay:"ebay.it",coef:[0,100,100,85,70,60,45,30]};
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let S=Object.assign({},DEF,store.get("vc_set",{}));S.coef=(S.coef&&S.coef.length===8)?S.coef:DEF.coef.slice();
+let LOT=store.get("vc_lot",[]);
+let cur=null;
+
+const eur=n=>(isFinite(n)?n:0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const num=s=>{s=String(s||"").trim().replace(/€/g,"");if(!s)return NaN;if(/,\d{1,2}$/.test(s)||(s.includes(",")&&!s.includes(".")))s=s.replace(/\./g,"").replace(",",".");return parseFloat(s)};
+const nums=s=>String(s||"").replace(/€/g," ").split(/[\s;\/|]+/).map(num).filter(n=>isFinite(n)&&n>0);
+const median=a=>{if(!a.length)return NaN;const b=a.slice().sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
+const rDown=(v,s)=>Math.floor(v/s+1e-9)*s, rUp=(v,s)=>Math.ceil(v/s-1e-9)*s;
+function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");setTimeout(()=>e.classList.remove("on"),1600)}
+
+function links(){
+  const g=$("game").value,l=$("lang").value,c=$("cond").value,n=$("name").value.trim();
+  const kw=$("lang").selectedOptions[0].dataset.k, gName=$("game").selectedOptions[0].text;
+  const u=$("cmUrl").value.trim().match(/https?:\/\/(www\.)?cardmarket\.com\/[a-z]{2}\/[^?#\s]+\/Products\/Singles\/[^?#\s]+/i);
+  const f=`language=${l}&minCondition=${c}`+(MODE==="price"?"&sellerType=1,2":"");
+  if(SEL&&SEL.game===g){
+    $("cmLink").href=`https://www.cardmarket.com/it/${g}/Products?idProduct=${SEL.id}&${f}`;
+    $("cmLink").textContent="Cardmarket filtrato ↗";
+    $("cmHint").innerHTML='<span class="ok">✓ Si apre direttamente la carta, filtrata per lingua e condizione.</span>';
+  } else if(u){
+    $("cmLink").href=u[0]+"?"+f;$("cmLink").textContent="Cardmarket filtrato ↗";
+    $("cmHint").innerHTML='<span class="ok">✓ Link incollato: si apre filtrato.</span>';
+  } else {
+    $("cmLink").href=`https://www.cardmarket.com/it/${g}/Products/Search?searchString=${encodeURIComponent(n)}`;
+    $("cmLink").textContent="Cerca su Cardmarket ↗";
+    $("cmHint").textContent="Scegli la carta dai suggerimenti sotto il nome per aprirla già filtrata.";
+  }
+  let base=n;
+  const CTG={Pokemon:"pokemon",OnePiece:"one-piece",DragonBallSuper:"dragon-ball-super",Magic:"magic",YuGiOh:"yu-gi-oh",Lorcana:"lorcana"};
+  const ctq=(SEL?SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,""):n).replace(/\s+/g," ").trim();
+  $("ctLink").href=SEL&&SEL.ct?`https://www.cardtrader.com/it-IT/cards/${SEL.ct}`:`https://www.cardtrader.com/it-IT/${CTG[g]||"magic"}?q=${encodeURIComponent(ctq)}`;
+  if(SEL){const num=(SEL.name.match(/(\S+\/\S+)$/)||[])[1]||"";base=SEL.name.replace(/\[.*?\]/g,"").replace(/ — .*$/,"")+(num?" "+num:"")}
+  const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")).trim();
+  $("ebLink").href=`https://www.${S.ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+}
+
+/* ---- Catalogo Cardmarket (incluso) ---- */
+let CAT={},SEL=null,LOADING={};
+const norm=t=>String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9぀-ヿ一-鿿]+/g," ").trim();
+async function getCat(g){
+  if(CAT[g])return CAT[g];
+  if(LOADING[g])return LOADING[g];
+  LOADING[g]=(async()=>{
+    const r=await fetch(`data/${g}.json`);if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    d.idx=d.p.map(x=>norm(x[1]+" "+(d.e[x[2]]||"")+" "+(x[4]||"")));
+    d.nidx=d.p.map((x,i)=>norm(x[1].replace(/\[.*?\]/g,"").replace(/ — .*$/,"").replace(/\(.*?\)/g,""))+" "+norm(x[4]||""));
+    CAT[g]=d;return d;
+  })();
+  try{return await LOADING[g]}catch(e){delete LOADING[g];throw e}
+}
+async function prepGame(){
+  const g=$("game").value;
+  $("selHint").textContent="Caricamento catalogo…";
+  try{const d=await getCat(g);$("selHint").innerHTML=SEL?$("selHint").innerHTML:"";$("catInfo").textContent=`Catalogo Cardmarket incluso nell'app · aggiornato al ${d.d.split("-").reverse().join("/")}.`;calc();showSug()}
+  catch(e){$("selHint").textContent="Catalogo non disponibile: uso la ricerca normale."}
+}
+function sugRow(c,i){const it=c.p[i],ex=c.e[it[2]],g=$("game").value;
+  const u=`https://www.cardmarket.com/it/${g}/Products?idProduct=${it[0]}&language=${$("lang").value}&minCondition=${$("cond").value}`;
+  return `<div data-i="${i}" class="sr"><span class="st">${esc(it[1])}<small>${ex?esc(ex)+" · ":""}${it[3]?"trend CM "+eur(it[3])+" · ":""}ID ${it[0]}</small></span><a class="eye" href="${u}" target="_blank" rel="noopener" title="Vedi la carta su Cardmarket">👁</a></div>`}
+function hideSug(){$("sug").classList.add("hide")}
+let sugTimer=null;
+function showSug(){clearTimeout(sugTimer);sugTimer=setTimeout(doSug,120)}
+function doSug(){
+  const g=$("game").value,c=CAT[g],q=norm($("name").value);
+  if(!c||q.length<2||(SEL&&$("name").value===SEL.name)){hideSug();return}
+  const toks=q.split(" ");const out=[];
+  for(let i=0;i<c.idx.length&&out.length<300;i++){const s=c.idx[i];let ok=true;for(const t of toks){if(!s.includes(t)){ok=false;break}}if(ok)out.push(i)}
+  const first=toks[0];
+  out.sort((a,b)=>{const sa=c.idx[a].startsWith(first)?0:1,sb=c.idx[b].startsWith(first)?0:1;return sa-sb||(c.p[b][3]||0)-(c.p[a][3]||0)});
+  const top=out.slice(0,12);
+  if(!top.length){$("sug").innerHTML='<div class="hint" style="cursor:default">Nessuna carta trovata. Prova con nome + numero o sigla del set.</div>';$("sug").classList.remove("hide");return}
+  $("sug").innerHTML=top.map(i=>sugRow(c,i)).join("")+(out.length>12?`<div class="hint" style="cursor:default">+${out.length-12} risultati: aggiungi numero o set per restringere</div>`:"");
+  $("sug").classList.remove("hide");
+}
+$("sug").onmousedown=e=>e.preventDefault();
+$("sug").onclick=e=>{if(e.target.closest(".eye"))return;const d=e.target.closest("[data-i]");if(!d)return;const g=$("game").value,c=CAT[g],it=c.p[+d.dataset.i];SEL={game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0};$("name").value=it[1];hideSug();calc();const q=QUEUE.find(z=>z.n===QCUR);if(q&&q.res){q.res.sel={...SEL};q.status="ok";renderQ()}};
+$("name").addEventListener("input",()=>{if(SEL&&$("name").value!==SEL.name)SEL=null;showSug();calc()});
+$("name").addEventListener("blur",()=>setTimeout(hideSug,150));
+$("name").addEventListener("focus",showSug);
+$("game").addEventListener("change",()=>{SEL=null;hideSug();prepGame()});
+
+/* ---- Scansione con fotocamera (coda) ---- */
+let SAMPLE=null,QUEUE=[],QCUR=null,QBUSY=false,QN=0;
+(async()=>{try{SAMPLE=window.claude?await window.claude.use("sample"):null}catch(e){SAMPLE=null}
+})();
+function loadImg(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=()=>rej(new Error("img"));img.src=URL.createObjectURL(file)})}
+function toBlob(img,m){const k=Math.min(1,m/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);return c}
+const SCAN_PROMPT=`Sei un esperto di carte collezionabili. Identifica la carta nella foto e rispondi SOLO con un oggetto JSON, senza altro testo:
+{"game":"Pokemon|OnePiece|DragonBallSuper|Magic|YuGiOh|Lorcana|altro","language":"ITA|ENG|JAP|FR|DE|ESP|POR|KOR|CHN","name_en":"nome della carta in INGLESE (traducilo se stampato in un'altra lingua; per Pokémon includi suffissi come ex, V, VMAX, GX)","printed_code":"riga del codice stampata in basso sulla carta, copiata esattamente come appare, es. 'OBF EN 228/197', 'G MEW IT 199/165', 'SV2a 201/165', 'OP02-036', 'LOB-IT001'; vuoto se non leggibile","number":"solo il numero di collezione, es. 228/197, OP02-036, FB01-001, LOB-001","set_code":"sigla del set stampata in basso a sinistra prima del numero (es. OBF, MEW, PAF, SVI, SV2a, sv8a); per One Piece/Dragon Ball la parte prima del trattino (OP02, FB01); vuoto se assente","set_name_en":"nome inglese dell'espansione se lo riconosci, altrimenti vuoto","notes":"difetti visibili (pieghe, graffi, bordi) in poche parole, in italiano; vuoto se nessuno"}
+Dragon Ball Fusion World e Dragon Ball Masters vanno entrambi come DragonBallSuper. La lingua è quella in cui è stampata la carta. Se nella foto ci sono più carte, descrivi quella più grande e centrale.`;
+$("scanCam").onchange=e=>$("scanFile").onchange(e);
+$("scanFile").onchange=async e=>{
+  let files=[...e.target.files];e.target.value="";if(!files.length)return;
+  const pm=MODE==="price";if(pm){files=files.slice(0,1);QCUR=null;$("scanHint").textContent="Riconoscimento in corso…"}
+  for(const f of files){
+    const q={n:++QN,status:"wait",thumb:"",file:f,price:pm};QUEUE.push(q);
+    try{const img=await loadImg(f);q.thumb=toBlob(img,120).toDataURL("image/jpeg",0.7);q.img=img}catch(err){q.status="err";q.msg="Foto non leggibile"}
+  }
+  renderQ();runQ();
+};
+function useFree(){return S.scan==="free"||(S.scan!=="claude"&&!SAMPLE)||(S.scan==="claude"&&!SAMPLE)}
+let OCRW=null;
+function loadScript(u){return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=u;sc.onload=res;sc.onerror=()=>rej(new Error("ocrload"));document.head.appendChild(sc)})}
+async function ocrWorker(){
+  if(OCRW)return OCRW;
+  OCRW=(async()=>{
+    if(!window.Tesseract)await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+    const jr=await fetch("ocr/eng.json");if(!jr.ok)throw new Error("ocrload");
+    const b64=(await jr.json()).gz;const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    let data;
+    if(typeof DecompressionStream!=="undefined"){data=new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer())}
+    else{await loadScript("https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako_inflate.min.js");data=pako.inflate(bin)}
+    const w=await Tesseract.createWorker([{code:"eng",data}],1,{gzip:false,cacheMethod:"none",corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js"});
+    return w;
+  })();
+  try{return await OCRW}catch(e){OCRW=null;throw new Error("ocrload")}
+}
+function cropCanvas(img,y0,y1,maxW){const sw=img.width,sh=img.height,sy=Math.round(sh*y0),h=Math.round(sh*(y1-y0));const k=Math.min(2,maxW/sw);const c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.4)";x.drawImage(img,0,sy,sw,h,0,0,c.width,c.height);return c}
+async function ocrRead(img){
+  const w=await ocrWorker();
+  const parts=[];
+  for(const [a,b] of [[0.72,1],[0,0.25],[0,1]]){const r=await w.recognize(cropCanvas(img,a,b,1600));parts.push(r.data.text||"")}
+  const txt=parts.join("\n");
+  const j=parseOcr(txt,true);
+  j.name_guess=(parts[1].split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' ,.-]/g," ").trim()).find(x=>x.replace(/[^A-Za-z]/g,"").length>=4)||"").slice(0,60);
+  if(!j.number&&!j.name_guess)throw new Error("noread");
+  return j;
+}
+function parseOcr(txt,soft){
+  const T=txt.replace(/[|]/g," ").replace(/[‘’`´]/g,"'");
+  const j={language:"",name_en:"",printed_code:"",number:"",set_code:"",ocr_words:[]};
+  let m;
+  if((m=T.match(/\b((?:OP|ST|EB|PRB)\d{2})\s*-\s*(\d{3})\b/i))){j.game="OnePiece";j.number=(m[1]+"-"+m[2]).toUpperCase();j.set_code=m[1].toUpperCase()}
+  else if((m=T.match(/\b((?:FB|FS|FP|SB)\d{2})\s*-\s*(\d{2,3})\b/i))){j.game="DragonBallSuper";j.number=(m[1]+"-"+m[2]).toUpperCase();j.set_code=m[1].toUpperCase()}
+  else if((m=T.match(/\b([A-Z]{2,4})\s*-\s*(?:EN|IT|DE|FR|SP|PT|JP)?\s*(\d{3})\b/))&&!/\d{1,3}\s*\/\s*\d{1,3}/.test(T)){j.game="YuGiOh";j.number=m[1]+"-"+m[2];j.set_code=m[1]}
+  else if((m=T.match(/(\d{1,3})\s*\/\s*(\d{2,3})/))){
+    j.number=m[1].padStart(3,"0")+"/"+m[2];
+    const before=T.slice(Math.max(0,m.index-40),m.index).split(/\s+/).filter(Boolean);
+    const lg=before.find(x=>/^(EN|IT|FR|DE|ES|PT|JP)$/i.test(x));
+    if(lg)j.language={EN:"ENG",IT:"ITA",FR:"FR",DE:"DE",ES:"ESP",PT:"POR",JP:"JAP"}[lg.toUpperCase()];
+    const code=before.reverse().find(x=>/^[A-Za-z]{2,4}\d{0,2}[a-z]?$/.test(x)&&!/^(EN|IT|FR|DE|ES|PT|JP|HP|PS)$/i.test(x));
+    if(code)j.set_code=code;
+  }
+  j.printed_code=[j.set_code,j.number].filter(Boolean).join(" ");
+  j.ocr_words=[...new Set(T.split(/[^A-Za-zÀ-ÿ'-]+/).filter(w=>w.length>=4))].slice(0,60);
+  if(!j.number&&!soft)throw new Error("noread");
+  return j;
+}
+async function runQ(){
+  if(QBUSY)return;QBUSY=true;
+  try{
+    let q;
+    while((q=QUEUE.find(x=>x.status==="wait"))){
+      q.status="work";renderQ();
+      try{
+        if(useFree()){
+          $("scanHint").textContent="Lettura gratuita in corso…";
+          q.j=await ocrRead(q.img);
+        }else{
+          const blob=await new Promise((res,rej)=>toBlob(q.img,1400).toBlob(b=>b?res(b):rej(new Error("img")),"image/jpeg",0.85));
+          const r=await SAMPLE(SCAN_PROMPT,{images:[blob],modelTier:"default"});
+          const m=(r.text||"").match(/\{[\s\S]*\}/);if(!m)throw new Error("parse");
+          q.j=JSON.parse(m[0]);
+        }
+        q.res=await matchScan(q.j);
+        q.status=q.res.sel?"ok":"pick";
+      }catch(err){
+        q.status="err";
+        if(err&&err.code==="rate_limited"){q.status="wait";renderQ();$("scanHint").textContent="Troppe richieste: riprendo tra 20 secondi…";await new Promise(r=>setTimeout(r,20000));continue}
+        q.msg=err&&err.code==="not_granted"?"Permesso non concesso":err&&err.message==="ocrload"?"Lettura gratuita non disponibile (serve connessione)":"Non riconosciuta: rifai la foto più vicina, dritta e con più luce";
+      }
+      delete q.img;
+      if(q.price){if(MODE==="price"){if(q.status!=="err")loadQ(q);else $("scanHint").textContent=q.msg}q.done=true}
+      else if(QCUR===null&&q.status!=="err"&&MODE==="val")loadQ(q);
+      renderQ();
+    }
+  }finally{QBUSY=false;if($("scanHint").textContent.startsWith("Troppe"))$("scanHint").textContent=""}
+}
+async function matchScan(j){
+  const games=[...$("game").options].map(o=>o.value);
+  const g=games.includes(j.game)?j.game:$("game").value;
+  const lo=[...$("lang").options].find(o=>o.dataset.k===String(j.language||"").toUpperCase());
+  const pc=String(j.printed_code||"").trim();
+  let num=String(j.number||"").trim(),code=String(j.set_code||"").trim();const sname=String(j.set_name_en||"").trim();
+  if(!num){const m=pc.match(/\d{1,3}\s*\/\s*\d{1,3}|[A-Z]{1,4}\d{1,2}[A-Z]?-[A-Z]{0,2}\d{3}/i);if(m)num=m[0].replace(/\s/g,"")}
+  if(!code){const t=pc.split(/\s+/).filter(x=>/^[A-Za-z]{2,4}\d{0,2}[a-z]?$/.test(x)&&!/^(EN|IT|JP|FR|DE|ES|PT|KR|CN)$/i.test(x));if(t.length)code=t[t.length-1]}
+  const out={g,lang:lo?lo.value:null,langTxt:lo?lo.text:$("lang").selectedOptions[0].text,label:[j.name_en,num].filter(Boolean).join(" ")||"?",notes:j.notes||"",sel:null,cands:[]};
+  out.label=[j.name_en,pc||num].filter(Boolean).join(" ")||"?";
+  let c;try{c=await getCat(g)}catch(e){return out}
+  const nameToks=norm(j.name_en||"").split(" ").filter(Boolean);
+  const ocrW=(j.ocr_words||[]).map(norm).filter(w=>w.length>=4);
+  const numToks=norm(num).split(" ").filter(Boolean),numAlt=numToks.map(t=>t.replace(/^0+(?=\d)/,""));
+  const codeT=norm(code),setToks=norm(sname).split(" ").filter(t=>t.length>2);
+  const scored=[];
+  for(let i=0;i<c.idx.length;i++){
+    const s=c.idx[i],nm=c.nidx[i];
+    if(nameToks.length){if(!nameToks.every(t=>(" "+nm+" ").includes(" "+t)))continue}
+    const w=" "+s+" ";let sc=0;
+    if(!nameToks.length){
+      if(!numToks.length)continue;
+      if(!(numToks.every(t=>w.includes(" "+t+" "))||numAlt.every(t=>w.includes(" "+t+" "))))continue;
+      if(codeT&&!w.includes(" "+codeT+" ")&&numToks.length<2)continue;
+      for(const o of ocrW)if((" "+nm+" ").includes(" "+o))sc+=2;
+    }
+    if(nm.startsWith(nameToks.join(" ")))sc+=2;
+    if(numToks.length){if(numToks.every(t=>w.includes(" "+t+" ")))sc+=6;else if(numAlt.every(t=>w.includes(" "+t+" ")))sc+=5;else if(numToks[0]&&w.includes(" "+numAlt[0]+" "))sc+=3}
+    if(codeT&&w.includes(" "+codeT+" "))sc+=4;
+    for(const t of setToks)if(s.includes(t))sc+=1;
+    scored.push([sc,i]);
+  }
+  if(!scored.length&&j.name_guess){
+    const gt=norm(j.name_guess).split(" ").filter(t=>t.length>=3);
+    if(gt.length){const need=Math.max(1,gt.length-1);
+      for(let i=0;i<c.nidx.length;i++){const nm=" "+c.nidx[i]+" ";let k=0;for(const t of gt)if(nm.includes(" "+t))k++;if(k>=need){let sc=k;const gj=gt.join(" "),nt=c.nidx[i].trim();if(nt===gj||nt.startsWith(gj+" "+(c.p[i][4]?norm(c.p[i][4]).split(" ")[0]:"")))sc+=4;else if(nt.startsWith(gj))sc+=2;sc-=Math.max(0,nt.split(" ").length-gt.length)*0.3;const w=" "+c.idx[i]+" ";if(codeT&&w.includes(" "+codeT+" "))sc+=3;scored.push([sc,i])}}
+      out.label=j.name_guess+(pc?" "+pc:"");}
+  }
+  scored.sort((a,b)=>b[0]-a[0]||(c.p[b[1]][3]||0)-(c.p[a[1]][3]||0));
+  if(!scored.length)return out;
+  const best=scored[0],same=scored.filter(x=>x[0]===best[0]).length;
+  const mk=i=>{const it=c.p[i];return{game:g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,i}};
+  if(best[0]>=5&&same===1)out.sel=mk(best[1]);
+  out.cands=scored.slice(0,12).map(x=>x[1]);
+  return out;
+}
+function loadQ(q){
+  if(!q.res)return;clearTimeout(sugTimer);QCUR=q.n;const r=q.res;
+  clearCard(true);
+  $("game").value=r.g;if(r.lang)$("lang").value=r.lang;
+  SEL=r.sel?{...r.sel}:null;
+  $("name").value=r.sel?r.sel.name:r.label;
+  $("scanHint").textContent=(q.price?"":`Foto ${q.n}: `)+`${r.label} · ${r.langTxt}`+(r.notes?` · ⚠️ ${r.notes}`:"");
+  calc();
+  if(!r.sel){
+    const c=CAT[r.g];
+    if(c&&r.cands.length){$("sug").innerHTML=`<div class="hint" style="cursor:default">Più versioni possibili: scegli quella giusta</div>`+r.cands.map(i=>sugRow(c,i)).join("");$("sug").classList.remove("hide")}
+    else showSug();
+  }
+  renderQ();window.scrollTo({top:0,behavior:"smooth"});
+}
+function renderQ(){
+  const ALL=QUEUE;{const QUEUE=ALL.filter(q=>!q.price);
+  $("qBox").classList.toggle("hide",!QUEUE.length);
+  const left=QUEUE.filter(q=>!q.done).length,work=QUEUE.filter(q=>q.status==="wait"||q.status==="work").length;
+  $("qHead").textContent=`Coda: ${left} da valutare`+(work?` · ${work} in riconoscimento…`:"");
+  $("qList").innerHTML=QUEUE.map(q=>{
+    const r=q.res;let t,sub;
+    if(q.status==="wait"){t="In attesa…";sub=""}
+    else if(q.status==="work"){t="Riconoscimento…";sub=""}
+    else if(q.status==="err"){t=q.msg||"Errore";sub="tocca × per rimuovere"}
+    else{t=r.sel?r.sel.name.replace(/\[.*?\]\s*/g,""):r.label;sub=(r.sel?(r.sel.exp||"")+(r.sel.trend?" · trend "+eur(r.sel.trend):""):"⚠︎ scegli la versione")+" · "+r.langTxt}
+    return `<div class="qi${q.n===QCUR?" on":""}${q.done?" done":""}" data-q="${q.n}">${q.thumb?`<img src="${q.thumb}" alt="">`:""}<div class="t"><b>${q.done?"✓ ":""}${esc(t)}</b><small>${esc(sub)}</small></div><button class="x" data-qx="${q.n}" aria-label="Rimuovi">×</button></div>`}).join("");
+}
+}
+$("qList").onclick=e=>{
+  const x=e.target.dataset.qx;if(x){QUEUE=QUEUE.filter(q=>q.n!==+x);if(QCUR===+x)QCUR=null;renderQ();return}
+  const d=e.target.closest("[data-q]");if(!d)return;const q=QUEUE.find(z=>z.n===+d.dataset.q);if(q&&q.res)loadQ(q);
+};
+$("qClear").onclick=()=>{QUEUE=QUEUE.filter(q=>q.status==="work");QCUR=null;renderQ();$("scanHint").textContent=""};
+function nextQ(){
+  if(QCUR!==null){const q=QUEUE.find(z=>z.n===QCUR);if(q)q.done=true}
+  QCUR=null;
+  const nx=QUEUE.find(q=>!q.price&&!q.done&&q.res&&(q.status==="ok"||q.status==="pick"));
+  if(nx)loadQ(nx);else renderQ();
+}
+
+function calc(){
+  links();
+  if(SEL)$("selHint").innerHTML='<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend Cardmarket (tutte le lingue): <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
+  if(MODE==="price"){calcPrice();return}
+  const cond=+$("cond").value, qty=Math.max(1,parseInt($("qty").value)||1);
+  const cm=num($("cm").value), ebList=nums($("eb").value);
+  const ebMed=median(ebList), ebAdj=isFinite(ebMed)?ebMed*S.coef[cond]/100:NaN;
+  const hasC=isFinite(cm)&&cm>0, hasE=isFinite(ebAdj);
+  let val=NaN,how="";
+  if(hasC&&hasE){
+    if(S.rule==="min"){val=Math.min(cm,ebAdj);how=cm<=ebAdj?"Cardmarket (più basso)":"eBay (più basso)"}
+    else if(S.rule==="avg"){val=(cm+ebAdj)/2;how="media CM/eBay"}
+    else if(S.rule==="cm"){val=cm;how="solo Cardmarket"}
+    else {val=ebAdj;how="solo eBay"}
+  } else if(hasC){val=cm;how="solo Cardmarket (eBay vuoto)"}
+  else if(hasE){val=ebAdj;how="solo eBay (Cardmarket vuoto)"}
+  const st=parseFloat(S.round)||0.1;
+  if(!isFinite(val)){cur=null;$("rOffer").textContent=$("rVal").textContent=$("rSell").textContent="–";$("rDet").innerHTML="Inserisci almeno un prezzo.";return}
+  const bulk=val<S.bulkT;
+  const pc=isFinite(num($("pc").value))?num($("pc").value):S.pct;
+  const offer=bulk?S.bulkP:rDown(val*pc/100,st);
+  const sell=rUp(val,0.01<st?st:0.01);
+  $("rOffer").innerHTML=eur(offer)+(bulk?' <span class="tag">BULK</span>':"");
+  $("rVal").textContent=eur(val);$("rSell").textContent=eur(sell);
+  let d=`Base: ${how}.`+(bulk?"":` Offerta al ${pc}%.`);
+  if(hasE)d+=` eBay: mediana ${eur(ebMed)} su ${ebList.length} vendit${ebList.length>1?"e":"a"}`+(S.coef[cond]!==100?` × ${S.coef[cond]}% (${CABBR[cond]}) = ${eur(ebAdj)}`:"")+".";
+  if(qty>1)d+=` <b>× ${qty} = offerta ${eur(offer*qty)}</b>`;
+  $("rDet").innerHTML=d;
+  cur={name:$("name").value.trim()||"(senza nome)",game:$("game").selectedOptions[0].text,lang:$("lang").selectedOptions[0].dataset.k,cond:CABBR[cond],qty,val,offer,bulk,pc};
+}
+
+function renderLot(){
+  $("lotN").textContent=LOT.reduce((a,i)=>a+i.qty,0);
+  const tv=LOT.reduce((a,i)=>a+i.val*i.qty,0),to=LOT.reduce((a,i)=>a+i.offer*i.qty,0);
+  $("tVal").textContent=eur(tv);$("tOff").textContent=eur(to);
+  $("lotList").innerHTML=LOT.length?LOT.map((i,k)=>`<div class="item"><div class="t"><div class="n">${i.qty>1?i.qty+"× ":""}${esc(i.name)}${i.bulk?' <span class="tag">BULK</span>':""}</div><div class="m">${esc(i.game)} · ${i.lang} · ${i.cond} · valore ${eur(i.val)}${i.bulk?"":" · "+(i.pc!=null?i.pc:"?")+"%"}</div></div><div class="p"><b>${eur(i.offer*i.qty)}</b><span class="m">${i.qty>1?eur(i.offer)+" cad.":""}</span></div><button class="x" data-k="${k}" aria-label="Rimuovi">×</button></div>`).join(""):'<div class="empty">Nessuna carta. Valuta una carta e premi “Aggiungi al lotto”.</div>';
+  store.set("vc_lot",LOT);
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function renderSet(){
+  $("sScan").value=S.scan||"auto";
+  $("sMk").value=S.markup;$("sPrule").value=S.prule;
+  $("sRule").value=S.rule;$("sPct").value=S.pct;$("sRound").value=S.round;$("sBulkT").value=S.bulkT;$("sBulkP").value=S.bulkP;$("sLangKw").checked=S.langKw;$("sEbay").value=S.ebay;
+  $("coefs").innerHTML=CONDS.slice(1).map((c,i)=>`<div><label>${c}</label><input type="number" inputmode="decimal" data-c="${i+1}" value="${S.coef[i+1]}"></div>`).join("");
+}
+function saveSet(){
+  S.scan=$("sScan").value;
+  const mk=num($("sMk").value);S.markup=isFinite(mk)?mk:10;S.prule=$("sPrule").value;
+  S.rule=$("sRule").value;S.pct=num($("sPct").value)||0;S.round=$("sRound").value;S.bulkT=num($("sBulkT").value)||0;S.bulkP=num($("sBulkP").value)||0;S.langKw=$("sLangKw").checked;S.ebay=$("sEbay").value;
+  document.querySelectorAll("#coefs input").forEach(e=>{const v=num(e.value);S.coef[+e.dataset.c]=isFinite(v)?v:100});
+  store.set("vc_set",S);$("pc").value=S.pct;$("mk").value=S.markup;calc();
+}
+
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  if(b.dataset.m&&b.dataset.m!==MODE){MODE=b.dataset.m;document.body.classList.toggle("mode-price",MODE==="price");$("scanFile").multiple=MODE!=="price";QCUR=null;clearCard(true);$("scanHint").textContent="";renderQ();calc()}
+  ["val","lot","set"].forEach(v=>$("v-"+v).classList.toggle("hide",v!==b.dataset.v));
+  window.scrollTo(0,0);
+});
+["game","lang","cond","qty","cm","eb","pc","cmUrl","ctp","mk"].forEach(id=>{$(id).addEventListener("input",calc);$(id).addEventListener("change",calc)});
+$("v-set").addEventListener("input",saveSet);$("v-set").addEventListener("change",saveSet);
+$("add").onclick=()=>{calc();if(!cur){toast("Inserisci almeno un prezzo");return}LOT.push(cur);renderLot();toast("Aggiunta al lotto ✓");if(QCUR!==null)nextQ();else clearCard()};
+document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const v=num($("pc").value);$("pc").value=Math.max(0,(isFinite(v)?v:S.pct)+(+b.dataset.d));calc()});
+function clearCard(keep){$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
+$("clear").onclick=()=>clearCard();
+$("lotList").onclick=e=>{const k=e.target.dataset.k;if(k!==undefined){LOT.splice(+k,1);renderLot()}};
+$("empty").onclick=()=>{if(LOT.length)$("confirmBox").classList.remove("hide")};
+$("noEmpty").onclick=()=>$("confirmBox").classList.add("hide");
+$("yesEmpty").onclick=()=>{LOT=[];renderLot();$("confirmBox").classList.add("hide");toast("Lotto svuotato")};
+$("copy").onclick=async()=>{
+  if(!LOT.length){toast("Lotto vuoto");return}
+  const lines=LOT.map(i=>`${i.qty}x ${i.name} [${i.game}, ${i.lang}, ${i.cond}] – valore ${eur(i.val)} – offerta ${eur(i.offer*i.qty)}`);
+  const tv=LOT.reduce((a,i)=>a+i.val*i.qty,0),to=LOT.reduce((a,i)=>a+i.offer*i.qty,0);
+  const txt=`VALUTAZIONE LOTTO – ${new Date().toLocaleDateString("it-IT")}\n\n${lines.join("\n")}\n\nValore totale: ${eur(tv)}\nOfferta totale: ${eur(to)}`;
+  try{await navigator.clipboard.writeText(txt);toast("Riepilogo copiato ✓")}catch(e){toast("Copia non consentita qui")}
+};
+$("reset").onclick=()=>{S=JSON.parse(JSON.stringify(DEF));store.set("vc_set",S);renderSet();calc();toast("Impostazioni ripristinate")};
+
+$("lotPc").value=S.pct;
+document.querySelectorAll("[data-ld]").forEach(b=>b.onclick=()=>{const v=num($("lotPc").value);$("lotPc").value=Math.max(0,(isFinite(v)?v:S.pct)+(+b.dataset.ld))});
+$("lotApply").onclick=()=>{
+  const v=num($("lotPc").value);if(!isFinite(v)){toast("Inserisci una percentuale");return}
+  if(!LOT.length){toast("Lotto vuoto");return}
+  const st=parseFloat(S.round)||0.1;let n=0;
+  LOT.forEach(i=>{if(!i.bulk){i.pc=v;i.offer=rDown(i.val*v/100,st);n++}});
+  renderLot();toast(`Offerta al ${v}% applicata a ${n} cart${n===1?"a":"e"} ✓`);
+};
+const TRIG="trig_019QuaE8LRomuA42ngqCQjWa",MCP_SRV="Claude Code Remote";
+const CAT_FALLBACK="";
+$("catNow").onclick=async()=>{
+  const b=$("catNow");b.disabled=true;$("catNowMsg").textContent="Avvio aggiornamento…";
+  try{
+    const mcp=window.claude?await window.claude.use("mcp"):null;
+    if(!mcp){window.open("https://github.com/alessiocestra93/collectio-card-valutate/actions/workflows/pages.yml","_blank");$("catNowMsg").innerHTML="Si apre GitHub: premi <b>Run workflow</b> → <b>Run workflow</b>. In circa 10 minuti il catalogo è aggiornato; poi ricarica la pagina.";b.disabled=false;return}
+    if(typeof mcp.callTool==="function")await mcp.callTool(MCP_SRV,"fire_trigger",{trigger_id:TRIG});
+    else{const sv=await mcp.server(MCP_SRV);await sv.fire_trigger({trigger_id:TRIG})}
+    $("catNowMsg").textContent="✓ Aggiornamento avviato. Ci vogliono circa 10–15 minuti: poi chiudi e riapri l'app.";
+  }catch(e){$("catNowMsg").textContent="Non sono riuscito ad avviarlo da qui. "+CAT_FALLBACK;b.disabled=false}
+};
+/* ---- Prezzatore ---- */
+var MODE="val";let curP=null;
+function calcPrice(){
+  const cond=+$("cond").value;
+  const cm=num($("cm").value),ct=num($("ctp").value),ebList=nums($("eb").value);
+  const ebMed=median(ebList),ebAdj=isFinite(ebMed)?ebMed*S.coef[cond]/100:NaN;
+  const src=[];if(isFinite(cm)&&cm>0)src.push(["Cardmarket",cm]);if(isFinite(ct)&&ct>0)src.push(["CardTrader",ct]);if(isFinite(ebAdj))src.push(["eBay",ebAdj]);
+  const st=parseFloat(S.round)||0.1;
+  const mkv=num($("mk").value),mk=isFinite(mkv)?mkv:S.markup;
+  let base=NaN,how="";
+  if(S.prule==="cm"&&src.find(x=>x[0]==="Cardmarket")){base=cm;how="Cardmarket"}
+  else if(S.prule==="avg"&&src.length){base=src.reduce((a,x)=>a+x[1],0)/src.length;how="media di "+src.map(x=>x[0]).join(", ")}
+  else if(src.length){const m=src.reduce((a,x)=>x[1]<a[1]?x:a);base=m[1];how=m[0]+" (più basso)"}
+  if(!isFinite(base)){curP=null;$("pSell").textContent=$("pBase").textContent=$("pGain").textContent="–";$("pDet").textContent="Inserisci almeno un prezzo.";return}
+  const price=rUp(base*(1+mk/100),st);
+  $("pSell").textContent=eur(price);$("pBase").textContent=eur(base);$("pGain").textContent=(mk>=0?"+":"")+mk+"%";
+  let d=`Base: ${how}.`+src.map(x=>` ${x[0]} ${eur(x[1])}`).join(" ·");
+  if(isFinite(ebMed)&&S.coef[cond]!==100)d+=` (eBay: mediana ${eur(ebMed)} × ${S.coef[cond]}% per ${CABBR[cond]})`;
+  $("pDet").innerHTML=d;
+  curP={base,price,mk};
+}
+$("pclear").onclick=()=>clearCard();
+document.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const v=num($("mk").value);$("mk").value=(isFinite(v)?v:S.markup)+(+b.dataset.mk);calc()});
+$("mk").value=S.markup;
+renderSet();$("pc").value=S.pct;renderLot();calc();prepGame();
+</script>
+</body>
+</html>
