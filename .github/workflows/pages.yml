@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -54,6 +54,14 @@ jobs:
               assert len(d["p"])>1000, g
               print(g, len(d["p"]), d["d"])
           PY
+      - name: Impronte visive (solo carte nuove)
+        run: |
+          pip install --quiet pillow numpy
+          git fetch --depth 1 origin fp-cache:fp-cache 2>/dev/null && git worktree add /tmp/fpcache fp-cache || (mkdir -p /tmp/fpcache && cd /tmp/fpcache && git init -q && git checkout -q -b fp-cache)
+          python tools/fingerprints.py data /tmp/fpcache --debug-ids 835938,867787,836302,725308,733794
+          cd /tmp/fpcache && git add -A && (git -c user.name=bot -c user.email=bot@example.com commit -qm "cache impronte" || true)
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:fp-cache
+          if [ -d "$GITHUB_WORKSPACE/debug_img" ]; then cd "$GITHUB_WORKSPACE/debug_img" && git init -q && git checkout -q -b fp-debug && git add -A && git -c user.name=bot -c user.email=bot@example.com commit -qm debug && git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" fp-debug && rm -rf "$GITHUB_WORKSPACE/debug_img"; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
