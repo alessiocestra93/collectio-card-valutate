@@ -256,7 +256,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>Catalogo carte</h2>
     <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
     <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 17:45</div>
+    <div class="hint">Versione app: 13/11 18:00</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -404,7 +404,7 @@ async function prepGame(){
 function sugRow(c,i){const it=c.p[i],ex=c.e[it[2]],g=$("game").value;
   const u=`https://www.cardmarket.com/it/${g}/Products?idProduct=${it[0]}&language=${$("lang").value}&minCondition=${$("cond").value}`;
   const im=(!window.claude&&it[6])?`<img class="cimg" loading="lazy" src="https://assets.tcgdex.net/${it[6]}/low.webp" alt="" onerror="this.style.visibility='hidden'">`:"";
-  return `<div data-i="${i}" class="sr">${im}<span class="st">${esc(it[1])}<small>${ex?esc(ex)+" · ":""}${it[3]?"trend CM "+eur(it[3])+" · ":""}ID ${it[0]}</small></span><a class="eye" href="${u}" target="_blank" rel="noopener" title="Vedi la carta su Cardmarket">👁</a></div>`}
+  return `<div data-i="${i}" class="sr">${im}<span class="st">${esc(it[1])}<small>${ex?esc(ex)+" · ":""}${it[3]?"trend CM "+eur(it[3])+" · ":""}ID ${it[0]}</small></span></div>`}
 function hideSug(){$("sug").classList.add("hide")}
 let sugTimer=null;
 function showSug(){clearTimeout(sugTimer);sugTimer=setTimeout(doSug,120)}
@@ -493,12 +493,36 @@ function prepCanvas(img,x0,x1,y0,y1,maxW,mode){
 }
 const OCR_VARIANTS_FRAMED=[[[0,0.45,0.9,0.98],1300,"lum","11"],[[0,0.62,0.85,1],1300,"lum","6"],[[0,0.5,0.88,0.99],1800,"lum","11"],[[0,0.45,0.9,0.98],1300,"min","11"],[[0,0.45,0.9,0.98],1800,"raw","11"],[[0,0.62,0.85,1],900,"lum","11"],[[0,0.45,0.9,0.98],900,"raw","11"]];
 const OCR_VARIANTS_FREE=[[[0,0.62,0.78,1],2000,"lum","11"],[[0,0.62,0.78,1],2000,"raw","11"],[[0,1,0.55,1],2000,"lum","11"],[[0,0.62,0.78,1],1400,"lum","6"],[[0,1,0,1],1800,"lum","11"]];
+function tri(s){s=" "+norm(s)+" ";const o=new Set();for(let i=0;i<s.length-2;i++)o.add(s.slice(i,i+3));return o}
+function triSim(a,b){if(!a.size||!b.size)return 0;let k=0;for(const x of a)if(b.has(x))k++;return k/Math.min(a.size,b.size)*(Math.min(a.size,b.size)/Math.max(a.size,b.size))**0.3}
+function sig(src,w,h,crop){const c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");const r=crop||[0,0,src.width,src.height];g.drawImage(src,r[0],r[1],r[2],r[3],0,0,w,h);const d=g.getImageData(0,0,w,h).data;const v=new Float32Array(w*h*3);let m=0;for(let i=0;i<w*h;i++){v[i*3]=d[i*4];v[i*3+1]=d[i*4+1];v[i*3+2]=d[i*4+2]}
+  const hist=new Float32Array(36);for(let i=0;i<w*h;i++){const R=d[i*4]/255,G=d[i*4+1]/255,B=d[i*4+2]/255;const mx=Math.max(R,G,B),mn=Math.min(R,G,B),s=mx?((mx-mn)/mx):0;let hh=0;if(mx>mn){if(mx===R)hh=((G-B)/(mx-mn))%6;else if(mx===G)hh=(B-R)/(mx-mn)+2;else hh=(R-G)/(mx-mn)+4;hh=(hh*60+360)%360}
+    const bin=s<0.2?(mx<0.35?33:mx<0.7?34:35):Math.floor(hh/360*11)*3+(s<0.5?0:s<0.8?1:2);hist[Math.min(35,bin)]+=1}
+  for(let i=0;i<36;i++)hist[i]/=w*h;return {v,hist}}
+function sigDist(a,b){let hi=0;for(let i=0;i<36;i++)hi+=Math.min(a.hist[i],b.hist[i]);let ma=0,mb=0;for(let i=0;i<a.v.length;i++){ma+=a.v[i];mb+=b.v[i]}ma/=a.v.length;mb/=b.v.length;let num=0,da=0,db=0;for(let i=0;i<a.v.length;i++){const x=a.v[i]-ma,y=b.v[i]-mb;num+=x*y;da+=x*x;db+=y*y}const cor=num/Math.sqrt(da*db||1);return hi*0.6+Math.max(0,cor)*0.4}
+function loadRemote(u){return new Promise(res=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=()=>res(null);im.src=u;setTimeout(()=>res(null),6000)})}
+async function visualRank(photo,res){
+  if(window.claude||!res.cands||res.cands.length<2)return res;
+  const c=CAT[res.g];if(!c)return res;
+  const top=res.cands.slice(0,8).filter(i=>c.p[i][6]);if(top.length<2)return res;
+  let ps;try{ps=sig(photo,12,16)}catch(e){return res}
+  const sc=[];
+  await Promise.all(top.map(async i=>{const im=await loadRemote(`https://assets.tcgdex.net/${c.p[i][6]}/low.webp`);if(!im)return;try{sc.push([sigDist(ps,sig(im,12,16)),i])}catch(e){}}));
+  if(sc.length<2)return res;
+  sc.sort((a,b)=>b[0]-a[0]);
+  const order=sc.map(x=>x[1]);res.cands=[...order,...res.cands.filter(i=>!order.includes(i))];
+  res.visual=sc.map(x=>Math.round(x[0]*100));
+  const it=c.p[sc[0][1]];
+  if(sc[0][0]-sc[1][0]>0.08&&!res.sel){res.sel={game:res.g,id:it[0],name:it[1],trend:it[3],exp:c.e[it[2]]||"",ct:it[5]||0,img:it[6]||"",i:sc[0][1]}}
+  return res;
+}
 async function knownCodes(){let c;try{c=await getCat($("game").value)}catch(e){return new Set()}if(c._codes)return c._codes;const s=new Set();for(const k in c.e){const p=String(c.e[k]).split(" · ");if(p[1])s.add(p[1].toUpperCase())}c._codes=s;return s}
 function voteOcr(texts,codes){
   const all=texts.join("\n");const cnt={};let m;const re=/(\d{1,3})\s*\/\s*(\d{2,3})/g;
   for(const t of texts){const seen=new Set();while((m=re.exec(t))){const k=m[1].padStart(3,"0")+"/"+m[2];if(!seen.has(k)){cnt[k]=(cnt[k]||0)+1;seen.add(k)}}}
   let best="",bc=0;for(const k in cnt)if(cnt[k]>bc){bc=cnt[k];best=k}
-  let code="";const toks=all.toUpperCase().split(/[^A-Z0-9]+/);for(const t of toks){if(t.length>=3&&codes.has(t)){code=t;break}}
+  let code="";const near=[];for(const t of texts)for(const ln of t.split("\n"))if(/\d{1,3}\s*\/\s*\d{2,3}/.test(ln))near.push(ln.slice(0,ln.search(/\d{1,3}\s*\/\s*\d{2,3}/)));
+  const toks=near.join(" ").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).reverse();for(const t of toks){if(t.length>=3&&codes.has(t)){code=t;break}}
   if(!code){for(const t of toks){const t2=t.replace(/(IT|EN|FR|DE|ES|PT)$/,"");if(t2.length>=3&&codes.has(t2)){code=t2;break}}}
   let lang="";const lm=all.match(/\b(?:[A-Z]{2,4})\s?(IT|EN|FR|DE|ES|PT)\b/)||all.match(/\b(IT|EN|FR|DE|ES|PT)\b\s*\d{1,3}\s*\//);if(lm)lang={EN:"ENG",IT:"ITA",FR:"FR",DE:"DE",ES:"ESP",PT:"POR"}[lm[1]];
   return {number:best,votes:bc,code,lang};
@@ -521,6 +545,7 @@ async function ocrRead(img){
   const j={language:v.lang||other.language||"",name_en:"",game:other.game,number:v.number||other.number,set_code:v.code||(other.game?other.set_code:""),ocr_words:[...new Set((nt+" "+texts.join(" ")).split(/[^A-Za-zÀ-ÿ'-]+/).filter(x=>x.length>=4))].slice(0,80)};
   if(other.game&&other.game!=="Pokemon"){j.number=other.number;j.set_code=other.set_code}
   j.printed_code=[j.set_code,j.number].filter(Boolean).join(" ");
+  j.name_lines=[...nt.split("\n"),...texts.join("\n").split("\n")].map(x=>x.replace(/[^A-Za-zÀ-ÿ' -]/g," ").replace(/\s+/g," ").trim()).filter(x=>/[A-Za-z]{4,}/.test(x)).slice(0,40);
   j.name_guess=(nt.split("\n").map(x=>x.replace(/[^A-Za-zÀ-ÿ' -]/g," ").replace(/\s+/g," ").trim()).filter(x=>/[A-Za-z]{4,}/.test(x)).sort((a,b)=>b.replace(/[^A-Za-z]/g,"").length-a.replace(/[^A-Za-z]/g,"").length)[0]||"").replace(/\b(BASE|BASIC|PS|HP)\b/gi,"").replace(/\s+/g," ").trim().slice(0,60);
   if(!j.number&&!j.name_guess)throw new Error("noread");
   return j;
@@ -590,6 +615,7 @@ async function runQ(){
           q.j=JSON.parse(m[0]);
         }
         q.res=await matchScan(q.j);
+        if(!q.res.sel&&q.img)q.res=await visualRank(q.img,q.res);
         q.status=q.res.sel?"ok":"pick";
       }catch(err){
         q.status="err";
@@ -616,6 +642,7 @@ async function matchScan(j){
   let c;try{c=await getCat(g)}catch(e){return out}
   const nameToks=norm(j.name_en||"").split(" ").filter(Boolean);
   const ocrW=(j.ocr_words||[]).map(norm).filter(w=>w.length>=4);
+  const NL=(j.name_lines||[]).map(tri);
   const numToks=norm(num).split(" ").filter(Boolean),numAlt=numToks.map(t=>t.replace(/^0+(?=\d)/,""));
   const numPh=[];if(numToks.length===2){for(const a of new Set([numToks[0],numAlt[0]]))for(const b2 of new Set([numToks[1],numAlt[1]]))numPh.push(" "+a+" "+b2+" ")}else if(numToks.length)numPh.push(" "+numToks.join(" ")+" "," "+numAlt.join(" ")+" ");
   const numHit=w=>numPh.some(p=>w.includes(p));
@@ -630,6 +657,7 @@ async function matchScan(j){
       if(!numHit(w))continue;
       if(codeT&&!w.includes(" "+codeT+" ")&&numToks.length<2)continue;
       for(const o of ocrW)if((" "+nm+" ").includes(" "+o))sc+=2;
+      if(NL.length){const base=c.p[i][1].replace(/\[.*$/,"").replace(/ — .*$/,"").replace(/\(.*?\)/g,"").trim();let best=0;const bt=tri(base);for(const L of NL)best=Math.max(best,triSim(bt,L));sc+=best*10}
     }
     if(nm.startsWith(nameToks.join(" ")))sc+=2;
     if(numToks.length){if(numHit(w))sc+=6;else if(numToks.length===1&&w.includes(" "+numAlt[0]+" "))sc+=3}
