@@ -54,6 +54,13 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#111}
 .btn.soft{background:#fff;border-color:#fff;color:#111}.btn.soft:active{background:var(--acc);color:#111}
 .btn.sm{padding:8px 10px;font-size:13px;width:auto}
+.busy{display:flex;align-items:center;gap:12px;margin:10px 0 4px;padding:12px;border-radius:14px;background:rgba(255,122,0,.08);border:1px solid rgba(255,122,0,.45);position:relative;overflow:hidden}
+.busy img{width:44px;height:60px;object-fit:cover;border-radius:6px;flex:none}
+.busy b{display:block;font-size:15px}
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,122,0,.25);border-top-color:#ff7a00;animation:sp .8s linear infinite;flex:none}
+.busy:after{content:"";position:absolute;left:0;bottom:0;height:3px;width:40%;background:#ff7a00;animation:bar 1.2s ease-in-out infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes bar{0%{left:-40%}100%{left:100%}}
 .hint{font-size:12px;color:var(--mute);margin-top:4px}
 .res{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
 .kpi{background:var(--bg);border-radius:11px;padding:10px}
@@ -118,6 +125,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
       <div class="btn pri" style="position:relative;overflow:hidden">📷 Scatta foto<input id="scanCam" type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px"></div>
       <div class="btn" style="position:relative;overflow:hidden">🖼 <span class="onlyVal">Dalla galleria (più foto)</span><span class="onlyPrice">Dalla galleria</span><input id="scanFile" type="file" accept="image/*" multiple style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px"></div>
     </div>
+    <div id="busy" class="busy hide"><img id="busyImg" alt=""><div class="spin"></div><div><b>Riconosco la carta…</b><div class="hint" id="busyTxt"></div></div></div>
     <div class="hint" id="scanHint"></div>
     <div id="qBox" class="hide onlyVal" style="margin:8px 0 4px">
       <div style="display:flex;justify-content:space-between;align-items:center"><span class="hint" id="qHead"></span><button class="btn sm" id="qClear">Svuota coda</button></div>
@@ -125,7 +133,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     </div>
     <div class="row">
       <div><label>Gioco</label>
-        <select id="game">
+        <select id="game" disabled>
           <option value="Pokemon">Pokémon</option>
           <!-- <option value="OnePiece">One Piece</option> per ora solo Pokémon -->
           <!-- <option value="DragonBallSuper">Dragon Ball Super</option> per ora solo Pokémon -->
@@ -165,7 +173,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
         </select></div>
       <div class="onlyVal"><label>Quantità</label><input id="qty" type="number" min="1" value="1" inputmode="numeric"></div>
     </div>
-    <div class="row">
+    <div class="row hide" id="gradeRow">
       <div><label>Gradazione</label>
         <select id="grader"><option value="">Non gradata</option><option>PSA</option><option>BGS</option><option>CGC</option><option>SGC</option><option>TAG</option><option>ACE</option><option>Altro</option></select></div>
       <div><label>Voto</label><input id="grade" inputmode="decimal" placeholder="es. 10"></div>
@@ -180,7 +188,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
       <a class="btn soft noGrade" id="ctLink" target="_blank" rel="noopener">CardTrader ↗</a>
       <a class="btn soft" id="ebLink" target="_blank" rel="noopener">eBay venduti ↗</a>
     </div>
-    <div class="hint onlyPrice">Cardmarket si apre con lingua, condizione e solo venditori professionali.</div>
+    <div class="hint onlyPrice">Filtri: lingua, condizione, venditori pro.</div>
     <div class="hint" id="cmHint"></div>
     <div class="noGrade"><details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Carta non nel catalogo? Incolla il suo link Cardmarket</summary>
       <input id="cmUrl" inputmode="url" placeholder="link della pagina della carta" autocomplete="off" style="margin-top:6px">
@@ -193,7 +201,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <div class="hint" id="ctEst"></div></div>
     <label>Ultimi venduti eBay (€) – anche più prezzi</label>
     <input id="eb" inputmode="decimal" placeholder="es. 14 15,5 13,9">
-    <div class="hint">Separa i prezzi con uno spazio: l'app usa la mediana.</div>
+    <div class="hint">Più prezzi separati da spazio → mediana</div>
   </div>
 
   <div class="box b3">
@@ -239,7 +247,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
       <div style="flex:0 0 auto;display:flex;gap:6px"><button class="btn sm" data-ld="-5">−5</button><button class="btn sm" data-ld="5">+5</button></div>
     </div>
     <button class="btn pri" id="lotApply" style="margin-top:10px">Applica a tutte le carte</button>
-    <div class="hint">Sostituisce la percentuale di ogni carta del lotto. Le carte bulk restano al prezzo fisso.</div>
+    <div class="hint">Vale per tutte le carte (bulk escluse).</div>
   </div>
   <div class="box">
     <h2>Carte nel lotto</h2>
@@ -262,9 +270,9 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
 <section id="v-set" class="hide setcols">
   <div class="box">
     <h2>Catalogo carte</h2>
-    <div class="hint" id="catInfo">Il catalogo Cardmarket è già incluso nell'app e si aggiorna da solo.</div>
-    <div class="hint">Si aggiorna in automatico ogni notte a mezzanotte.</div>
-    <div class="hint">Versione app: 13/11 22:30</div>
+    <div class="hint" id="catInfo">Catalogo incluso.</div>
+    <div class="hint">Si aggiorna ogni notte a mezzanotte.</div>
+    <div class="hint">Versione app: 13/11 22:45</div>
     <button class="btn" id="catNow" style="margin-top:10px">🔄 Aggiorna catalogo adesso</button>
     <div class="hint" id="catNowMsg"></div>
   </div>
@@ -272,10 +280,10 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     <h2>CardTrader</h2>
     <label>Token API CardTrader</label>
     <input id="sCtTok" type="password" autocomplete="off" placeholder="incolla il token del tuo profilo CardTrader">
-    <div class="hint">Resta salvato solo su questo telefono. Serve per leggere dal vivo il minimo CardTrader Zero per lingua e condizione.</div>
+    <div class="hint">Facoltativo: il ponte è già attivo.</div>
     <label style="margin-top:10px">Indirizzo ponte Cloudflare (già impostato, lascia vuoto)</label>
     <input id="sCtProxy" type="url" autocomplete="off" placeholder="https://collectio-ct.TUONOME.workers.dev">
-    <div class="hint">Se è impostato, il token non serve sul telefono: lo custodisce il ponte.</div>
+    <div class="hint">Già impostato: lascia vuoto.</div>
     <div class="hint" id="ctTokMsg"></div>
   </div>
   <div class="box">
@@ -285,7 +293,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
       <option value="free">Sempre lettura gratuita sul telefono</option>
       <option value="claude">Sempre Claude</option>
     </select>
-    <div class="hint">La lettura gratuita legge il codice stampato in basso (es. OBF 228/197, OP02-036) direttamente sul telefono, senza consumare i limiti di Claude. Gioco e lingua: controlla che siano impostati giusti.</div>
+    <div class="hint">Riconosce carta, lingua e gradazione dalla foto, gratis sul telefono.</div>
   </div>
   <div class="box">
     <h2>Prezzatore</h2>
@@ -297,7 +305,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
     </select>
     <label>Ricarico predefinito (%)</label>
     <input id="sMk" type="number" inputmode="decimal">
-    <div class="hint">Il prezzo di vendita è arrotondato per eccesso secondo l'arrotondamento qui sotto.</div>
+    <div class="hint">Arrotondato per eccesso.</div>
   </div>
   <div class="box">
     <h2>Calcolo del valore</h2>
@@ -318,7 +326,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
       <option value="0.5">0,50 €</option>
       <option value="1">1 €</option>
     </select>
-    <div class="hint">L'offerta viene arrotondata per difetto, il prezzo di vendita per eccesso.</div>
+    <div class="hint">Offerta per difetto, vendita per eccesso.</div>
   </div>
   <div class="box">
     <h2>Bulk</h2>
@@ -329,7 +337,7 @@ input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
   </div>
   <div class="box">
     <h2>Condizione → correzione prezzo eBay (%)</h2>
-    <div class="hint" style="margin-bottom:6px">Su eBay di solito non si filtra per condizione, quindi il prezzo eBay viene corretto con queste percentuali. Il minimo Cardmarket no, perché è già filtrato.</div>
+    <div class="hint" style="margin-bottom:6px">Correzione del prezzo eBay in base alla condizione.</div>
     <div class="grid2" id="coefs"></div>
   </div>
   <div class="box">
@@ -380,14 +388,14 @@ function links(){
   if(SEL&&SEL.game===g){
     $("cmLink").href=`https://www.cardmarket.com/it/${g}/Products?idProduct=${SEL.id}&${f}`;
     $("cmLink").textContent="Cardmarket filtrato ↗";
-    $("cmHint").innerHTML='<span class="ok">✓ Si apre direttamente la carta, filtrata per lingua e condizione.</span>';
+    $("cmHint").innerHTML='<span class="ok">✓ Link filtrato</span>';
   } else if(u){
     $("cmLink").href=u[0]+"?"+f;$("cmLink").textContent="Cardmarket filtrato ↗";
-    $("cmHint").innerHTML='<span class="ok">✓ Link incollato: si apre filtrato.</span>';
+    $("cmHint").innerHTML='<span class="ok">✓ Link filtrato</span>';
   } else {
     $("cmLink").href=`https://www.cardmarket.com/it/${g}/Products/Search?searchString=${encodeURIComponent(n)}`;
     $("cmLink").textContent="Cerca su Cardmarket ↗";
-    $("cmHint").textContent="Scegli la carta dai suggerimenti sotto il nome per aprirla già filtrata.";
+    $("cmHint").textContent="Scegli la carta dai suggerimenti";
   }
   let base=n;
   const CTG={Pokemon:"pokemon",OnePiece:"one-piece",DragonBallSuper:"dragon-ball-super",Magic:"magic",YuGiOh:"yu-gi-oh",Lorcana:"lorcana"};
@@ -399,7 +407,7 @@ function links(){
   const gr=$("grader").value,gv=$("grade").value.trim();
   const q=(base.replace(/[()]/g," ").replace(/\s+/g," ")+(S.langKw?" "+kw:"")+(gr?" "+gr+(gv?" "+gv:""):"")).trim();
   document.body.classList.toggle("graded",!!gr);
-  $("gradeHint").textContent=gr?`Carta gradata ${gr}${gv?" "+gv:""}: si valuta solo con gli ultimi venduti eBay della stessa gradazione.`:"";
+  $("gradeHint").textContent=gr?`Gradata ${gr}${gv?" "+gv:""}: solo venduti eBay`:"";
   $("ebLink").href=`https://www.${S.ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
 }
 
@@ -439,8 +447,8 @@ function doSug(){
   const first=toks[0];
   out.sort((a,b)=>{const sa=c.idx[a].startsWith(first)?0:1,sb=c.idx[b].startsWith(first)?0:1;return sa-sb||(c.p[b][3]||0)-(c.p[a][3]||0)});
   const top=out.slice(0,12);
-  if(!top.length){$("sug").innerHTML='<div class="hint" style="cursor:default">Nessuna carta trovata. Prova con nome + numero o sigla del set.</div>';$("sug").classList.remove("hide");return}
-  $("sug").innerHTML=top.map(i=>sugRow(c,i)).join("")+(out.length>12?`<div class="hint" style="cursor:default">+${out.length-12} risultati: aggiungi numero o set per restringere</div>`:"");
+  if(!top.length){$("sug").innerHTML='<div class="hint" style="cursor:default">Nessuna carta trovata: prova nome + numero</div>';$("sug").classList.remove("hide");return}
+  $("sug").innerHTML=top.map(i=>sugRow(c,i)).join("")+(out.length>12?`<div class="hint" style="cursor:default">+${out.length-12} altri: aggiungi il numero</div>`:"");
   $("sug").classList.remove("hide");
 }
 $("sug").onmousedown=e=>e.preventDefault();
@@ -654,7 +662,7 @@ async function embVec(canvas,S){
 function embScores(db,v){const {M,n,d}=db,out=new Float32Array(n);for(let i=0;i<n;i++){let s=0;const o=i*d;for(let k=0;k<d;k++)s+=M[o+k]*v[k];out[i]=s/127}return out}
 // ritagli possibili della carta nella foto
 function embCrops(img){
-  if(img._framed)return [img];
+  if(img._framed){const R=[img];const b=findCardBox(img);if(b&&!b.rot&&b.w*b.h<img.width*img.height*0.8)R.push(cropBox(img,b));return R}
   const b=findCardBox(img);
   if(b){const cr=cropBox(img,b);return b.rot?[fpRotated(cr,90),fpRotated(cr,270)]:[cr]}
   const R=[],W=img.width,H=img.height,asp=63/88;
@@ -756,7 +764,7 @@ function parseLabel(t){
   return j;
 }
 async function ocrRead(img){
-  if(!img._framed){try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(img,0,1,0,0.32,1400,"lum")),20000);const lj=parseLabel(r.data.text||"");if(lj&&(lj.name_guess||lj.number))return lj}catch(e){}}
+  {const src=img._label||img;const y1=img._label?1:0.32;try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(src,0,1,0,y1,1400,"lum")),20000);const lj=parseLabel(r.data.text||"");if(lj&&(lj.grader||lj.name_guess||lj.number))return lj}catch(e){}}
   const j=await ocrRead0(img);
   if(!j.grader){try{const w=await ocrWorker();await w.setParameters({tessedit_pageseg_mode:"11"});const r=await withTimeout(w.recognize(prepCanvas(img,0,1,0,0.3,1400,"lum")),20000);const gd=detectGrade(r.data.text||"");if(gd){j.grader=gd.grader;j.grade=gd.grade}}catch(e){}}
   return j;
@@ -850,6 +858,8 @@ function shoot(){
   const sx=(gr.left-vr.left-ox)/sc,sy=(gr.top-vr.top-oy)/sc,sw=gr.width/sc,sh=gr.height/sc;
   const c=document.createElement("canvas");c.width=Math.round(sw);c.height=Math.round(sh);
   c.getContext("2d").drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);c._framed=true;
+  // zona sopra e dentro il mirino: lì c'è l'etichetta delle carte gradate
+  {const ty=Math.max(0,sy-sh*0.45),th=Math.min(v.videoHeight-ty,sy+sh*0.35-ty),tx=Math.max(0,sx-sw*0.1),tw=Math.min(v.videoWidth-tx,sw*1.2);const f=document.createElement("canvas");f.width=Math.round(tw);f.height=Math.round(th);f.getContext("2d").drawImage(v,tx,ty,tw,th,0,0,f.width,f.height);c._label=f}
   const q={n:++QN,status:"wait",thumb:toBlob(c,120).toDataURL("image/jpeg",0.7),img:c,price:MODE==="price"};
   if(q.price){QCUR=null;closeCam()}else{CAMN++;$("camN").textContent=CAMN+" foto";}
   QUEUE.push(q);renderQ();runQ();
@@ -879,12 +889,14 @@ function parseOcr(txt,soft){
   if(!j.number&&!soft)throw new Error("noread");
   return j;
 }
+function setBusy(q){const b=$("busy");if(!q){b.classList.add("hide");$("scanHint").style.display="";return}if(q.thumb){$("busyImg").src=q.thumb;$("busyImg").style.display=""}else $("busyImg").style.display="none";$("busyTxt").textContent="";b.classList.remove("hide");$("scanHint").style.display="none"}
+new MutationObserver(()=>{if(!$("busy").classList.contains("hide"))$("busyTxt").textContent=$("scanHint").textContent}).observe(document.getElementById("scanHint")||document.body,{childList:true,characterData:true,subtree:true});
 async function runQ(){
   if(QBUSY)return;QBUSY=true;
   try{
     let q;
     while((q=QUEUE.find(x=>x.status==="wait"))){
-      q.status="work";renderQ();
+      q.status="work";renderQ();setBusy(q);
       try{
         if(useFree()){
           $("scanHint").textContent="Lettura gratuita in corso…";
@@ -906,15 +918,15 @@ async function runQ(){
         q.status=q.res.sel?"ok":"pick";
       }catch(err){
         q.status="err";
-        if(err&&err.code==="rate_limited"){q.status="wait";renderQ();$("scanHint").textContent="Troppe richieste: riprendo tra 20 secondi…";await new Promise(r=>setTimeout(r,20000));continue}
-        q.msg=err&&err.code==="not_granted"?"Permesso non concesso":err&&err.message==="ocrload"?"Lettura gratuita non disponibile (serve connessione)":"Non riconosciuta: rifai la foto più vicina, dritta e con più luce";
+        if(err&&err.code==="rate_limited"){q.status="wait";renderQ();$("scanHint").textContent="Attendo 20 s…";await new Promise(r=>setTimeout(r,20000));continue}
+        q.msg=err&&err.code==="not_granted"?"Permesso non concesso":err&&err.message==="ocrload"?"Lettura gratuita non disponibile (serve connessione)":"Non riconosciuta: rifai la foto più vicina e con più luce";
       }
       delete q.img;
       if(q.price){if(MODE==="price"){if(q.status!=="err")loadQ(q);else $("scanHint").textContent=q.msg}q.done=true}
       else if(QCUR===null&&q.status!=="err"&&MODE==="val")loadQ(q);
       renderQ();
     }
-  }finally{QBUSY=false;if(/^(Troppe|Preparazione|Lettura)/.test($("scanHint").textContent)){const e=QUEUE.filter(q=>q.status==="err").slice(-1)[0];$("scanHint").textContent=e&&!QUEUE.some(q=>q.status==="ok"||q.status==="pick")?e.msg:""}}
+  }finally{QBUSY=false;setBusy(null);if(/^(Troppe|Preparazione|Lettura)/.test($("scanHint").textContent)){const e=QUEUE.filter(q=>q.status==="err").slice(-1)[0];$("scanHint").textContent=e&&!QUEUE.some(q=>q.status==="ok"||q.status==="pick")?e.msg:""}}
 }
 async function matchScan(j){
   const games=[...$("game").options].map(o=>o.value);
@@ -972,14 +984,14 @@ async function matchScan(j){
 function loadQ(q){
   if(!q.res)return;clearTimeout(sugTimer);QCUR=q.n;const r=q.res;
   clearCard(true);
-  $("game").value=r.g;if(r.lang)$("lang").value=r.lang;$("grader").value=r.grader||"";$("grade").value=r.grade||"";
+  $("game").value=r.g;if(r.lang)$("lang").value=r.lang;$("grader").value=r.grader||"";$("grade").value=r.grade||"";$("gradeRow").classList.toggle("hide",!r.grader);
   SEL=r.sel?{...r.sel}:null;
   $("name").value=r.sel?r.sel.name:r.label;
-  $("scanHint").textContent=(q.price?"":`Foto ${q.n}: `)+(r.langGuess?"":"⚠️ lingua non riconosciuta, controllala · ")+`${r.label} · ${r.langTxt}`+(r.notes?` · ⚠️ ${r.notes}`:"");
+  $("scanHint").textContent=(q.price?"":`Foto ${q.n}: `)+(r.langGuess?"":"⚠️ controlla la lingua · ")+`${r.label} · ${r.langTxt}`+(r.notes?` · ⚠️ ${r.notes}`:"");
   calc();
   if(!r.sel){
     const c=CAT[r.g];
-    if(c&&r.cands.length){$("sug").innerHTML=`<div class="hint" style="cursor:default">Più versioni possibili: scegli quella giusta</div>`+r.cands.map(i=>sugRow(c,i)).join("");$("sug").classList.remove("hide")}
+    if(c&&r.cands.length){$("sug").innerHTML=`<div class="hint" style="cursor:default">Scegli quella giusta</div>`+r.cands.map(i=>sugRow(c,i)).join("");$("sug").classList.remove("hide")}
     else showSug();
   }
   renderQ();window.scrollTo({top:0,behavior:"smooth"});
@@ -1055,30 +1067,30 @@ function prefillLow(){
   if(CM_AUTO&&CM_AUTO.key===key)return;
   if($("cm").value&&!(CM_AUTO&&$("cm").value===CM_AUTO.v))return;
   const v=String(SEL.low).replace(".",",");$("cm").value=v;CM_AUTO={key,v};
-  $("cmEst").innerHTML="↳ stima automatica: minimo Cardmarket di <b>tutte le lingue e condizioni</b> (aggiornato ogni notte). Controlla su Cardmarket e correggi se serve.";
+  $("cmEst").innerHTML="Stima: minimo di tutte le lingue. Verifica.";
 }
 let CT_REQ=0;
 function prefillCT(){
   const ctOn=S.ctTok||ctProxy();
-  if(!SEL||!ctOn||window.claude){if(!ctOn&&SEL)$("ctEst").textContent="Inserisci il token CardTrader in ⚙︎ per il prezzo automatico.";return}
+  if(!SEL||!ctOn||window.claude){if(!ctOn&&SEL)$("ctEst").textContent="Manca il collegamento CardTrader";return}
   const lg=CTLANG[$("lang").selectedOptions[0].dataset.k];const cond=+$("cond").value||2;
   const key=SEL.game+":"+SEL.id+":"+lg+":"+cond;
   if(CT_AUTO&&CT_AUTO.key===key)return;
   if($("ctp").value&&!(CT_AUTO&&$("ctp").value===CT_AUTO.v))return;
-  if(!lg){$("ctEst").textContent="Lingua non disponibile su CardTrader.";return}
-  const my=++CT_REQ;const sel=SEL;CT_AUTO={key,v:$("ctp").value};$("ctEst").textContent="Cerco il minimo CardTrader Zero…";
+  if(!lg){$("ctEst").textContent="Lingua non presente su CardTrader";return}
+  const my=++CT_REQ;const sel=SEL;CT_AUTO={key,v:$("ctp").value};$("ctEst").textContent="Cerco su CardTrader…";
   ctMinFor(sel,lg,cond).then(r=>{if(my!==CT_REQ||SEL!==sel)return;
     const ln=$("lang").selectedOptions[0].text,cn=CTCOND_IT[Math.max(0,Math.min(6,cond-1))];
     if(r.bp)SEL.ctbp=r.bp;
     if(r.min==null){
-      $("ctEst").textContent=!r.bp?"Carta non trovata su CardTrader.":(r.any?"Nessuna copia CT Zero in "+ln+" "+cn+" o migliore tra le "+r.n+" più economiche (la più economica è "+eur(r.any.eur)+" in "+(CTCOND_IT[r.any.rank]||"altra condizione")+"). Controlla su CardTrader.":"Nessuna copia CT Zero in "+ln+" in vendita.");
+      $("ctEst").textContent=!r.bp?"Non trovata su CardTrader":(r.any?"Nessuna "+cn+" tra le più economiche (min. "+eur(r.any.eur)+", "+(CTCOND_IT[r.any.rank]||"?")+")":"Nessuna copia CT Zero in "+ln);
       if(CT_AUTO&&$("ctp").value===CT_AUTO.v){$("ctp").value="";}CT_AUTO={key,v:""};links();return}
-    const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="↳ automatico: minimo CardTrader Zero in "+ln+", "+cn+" o migliore (adesso).";calc();
-  }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido: controllalo in ⚙︎.":(e.message==="Failed to fetch"||e.message==="Load failed"?"Non riesco a collegarmi a CardTrader: controlla la connessione e riprova.":"Errore CardTrader ("+e.message+"): mandami uno screenshot.")});
+    const v=r.min.toFixed(2).replace(".",",");$("ctp").value=v;CT_AUTO={key,v};$("ctEst").textContent="✓ Minimo CT Zero · "+ln+" · "+cn+"+";calc();
+  }).catch(e=>{if(my!==CT_REQ)return;CT_AUTO=null;$("ctEst").textContent=e.message==="token"?"Token CardTrader non valido":(e.message==="Failed to fetch"||e.message==="Load failed"?"CardTrader non raggiungibile, riprova":"Errore CardTrader ("+e.message+")")});
 }
 function calc(){
   links();prefillLow();prefillCT();
-  if(SEL)$("selHint").innerHTML=(!window.claude&&SEL.img?'<img src="https://assets.tcgdex.net/'+SEL.img+'/low.webp" alt="" style="width:90px;border-radius:6px;display:block;margin:6px 0" onerror="this.remove()">':'')+'<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend Cardmarket (tutte le lingue): <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
+  if(SEL)$("selHint").innerHTML=(!window.claude&&SEL.img?'<img src="https://assets.tcgdex.net/'+SEL.img+'/low.webp" alt="" style="width:90px;border-radius:6px;display:block;margin:6px 0" onerror="this.remove()">':'')+'<span class="ok">✓ '+(SEL.exp?esc(SEL.exp)+' · ':'')+'ID '+SEL.id+'</span>'+(SEL.trend?' · trend <b>'+eur(SEL.trend)+'</b>':'');else if($("selHint").textContent.startsWith("✓"))$("selHint").textContent="";
   if(MODE==="price"){calcPrice();return}
   const cond=+$("cond").value, qty=Math.max(1,parseInt($("qty").value)||1);
   const cm=num($("cm").value), ebList=nums($("eb").value), ctv=num($("ctp").value);
@@ -1146,7 +1158,7 @@ $("cm").addEventListener("input",()=>{if(CM_AUTO&&$("cm").value!==CM_AUTO.v){CM_
 $("v-set").addEventListener("input",saveSet);$("v-set").addEventListener("change",saveSet);
 $("add").onclick=()=>{calc();if(!cur){toast("Inserisci almeno un prezzo");return}LOT.push(cur);renderLot();toast("Aggiunta al lotto ✓");if(QCUR!==null)nextQ();else clearCard()};
 document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const v=num($("pc").value);$("pc").value=Math.max(0,(isFinite(v)?v:S.pct)+(+b.dataset.d));calc()});
-function clearCard(keep){$("grader").value="";$("grade").value="";CM_AUTO=null;CT_AUTO=null;$("cmEst").textContent="";$("ctEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
+function clearCard(keep){$("gradeRow").classList.add("hide");$("grader").value="";$("grade").value="";CM_AUTO=null;CT_AUTO=null;$("cmEst").textContent="";$("ctEst").textContent="";$("mk").value=S.markup;["name","cm","eb","cmUrl","ctp"].forEach(i=>$(i).value="");SEL=null;hideSug();$("qty").value=1;$("pc").value=S.pct;calc();if(!keep){$("name").focus();$("scanHint").textContent=""}}
 $("clear").onclick=()=>clearCard();
 $("lotList").onclick=e=>{const k=e.target.dataset.k;if(k!==undefined){LOT.splice(+k,1);renderLot()}};
 $("empty").onclick=()=>{if(LOT.length)$("confirmBox").classList.remove("hide")};
